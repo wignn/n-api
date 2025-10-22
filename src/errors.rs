@@ -15,14 +15,14 @@ impl std::fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
+use thiserror::Error;
 use axum::{
-    extract::rejection::JsonRejection,
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use axum::extract::rejection::JsonRejection;
 use serde_json::json;
-use thiserror::Error;
 use validator::ValidationErrors;
 
 #[derive(Error, Debug)]
@@ -34,7 +34,7 @@ pub enum AppError {
     Jwt(#[from] jsonwebtoken::errors::Error),
 
     #[error("Password hashing error: {0}")]
-    PasswordHash(#[from] argon2::password_hash::Error),
+    PasswordHash(String),
 
     #[error("Validation error")]
     ValidationError(#[from] ValidationErrors),

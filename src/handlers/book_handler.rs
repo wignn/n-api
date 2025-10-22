@@ -1,11 +1,12 @@
-use crate::AppState;
 use crate::models::book_model::{BookDto, CreateBookDto, UpdateBookDto};
-use crate::models::paging::{PaginationParams, PaginatedResponse};
+use crate::models::paging::{PaginatedResponse, PaginationParams};
 use crate::services::book_service::BookService;
+use crate::utils::jwt::JwtService;
+use crate::{models, AppState};
 use axum::{
-    Json,
+    extract::{Path, Query, State},
     http::StatusCode,
-    extract::{State, Path, Query},
+    Json,
 };
 
 pub struct BookHandler;
@@ -14,61 +15,21 @@ impl BookHandler {
     pub async fn get_books(
         State(state): State<AppState>,
         Query(params): Query<PaginationParams>,
-    ) -> Result<Json<PaginatedResponse<BookDto>>, StatusCode> {
-        let book_service = BookService::new(state.db.clone());
+    ) -> Result<Json<PaginatedResponse<models::book_model::Book>>, StatusCode> {
+        let jwt_service = JwtService::new(
+            &state.config.jwt_secret_key,
+            state.config.jwt_expire_in,
+            state.config.jwt_refresh_expire_in,
+        );
+
+        let book_service = BookService::new(state.db.clone(), jwt_service);
 
         match book_service.get_books(params).await {
-            Ok(response) => Ok(Json(response)),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-
-    pub async fn get_book(
-        State(state): State<AppState>,
-        Path(id): Path<String>,
-    ) -> Result<Json<BookDto>, StatusCode> {
-        let book_service = BookService::new(state.db.clone());
-
-        match book_service.get_book_by_id(&id).await {
-            Ok(book) => Ok(Json(book)),
-            Err(_) => Err(StatusCode::NOT_FOUND),
-        }
-    }
-
-    pub async fn create_book(
-        State(state): State<AppState>,
-        Json(payload): Json<CreateBookDto>,
-    ) -> Result<Json<BookDto>, StatusCode> {
-        let book_service = BookService::new(state.db.clone());
-
-        match book_service.create_book(payload).await {
-            Ok(book) => Ok(Json(book)),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-
-    pub async fn update_book(
-        State(state): State<AppState>,
-        Path(id): Path<String>,
-        Json(payload): Json<UpdateBookDto>,
-    ) -> Result<Json<BookDto>, StatusCode> {
-        let book_service = BookService::new(state.db.clone());
-
-        match book_service.update_book(&id, payload).await {
-            Ok(book) => Ok(Json(book)),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-
-    pub async fn delete_book(
-        State(state): State<AppState>,
-        Path(id): Path<String>,
-    ) -> Result<StatusCode, StatusCode> {
-        let book_service = BookService::new(state.db.clone());
-
-        match book_service.delete_book(&id).await {
-            Ok(_) => Ok(StatusCode::NO_CONTENT),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Ok(paginated) => Ok(Json(paginated)),
+            Err(e) => {
+                eprintln!("Error getting books: {:?}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
         }
     }
 }

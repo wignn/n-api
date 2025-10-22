@@ -1,15 +1,15 @@
+pub mod config;
+pub mod database;
+pub mod errors;
 pub mod handlers;
 pub mod models;
-pub mod services;
-pub mod config;
 pub mod routes;
-pub mod errors;
-pub mod database;
+pub mod services;
 pub mod utils;
 
 use std::sync::Arc;
-use database::Database;
 use config::Config;
+use database::Database;
 
 pub type AppState = Arc<AppStateInner>;
 
