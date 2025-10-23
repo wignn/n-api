@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "varchar", rename_all = "lowercase")]
@@ -9,9 +8,9 @@ pub enum Role {
     User,
 }
 
-#[derive(Clone, Debug, FromRow)]
+#[derive(Clone, Debug, FromRow, Serialize)]
 pub struct User {
-    pub id: Uuid,
+    pub id: String,
     pub username: String,
     pub role: Role,
     pub email: String,
@@ -21,7 +20,7 @@ pub struct User {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserDto {
-    pub id: Uuid,
+    pub id: String,
     pub username: String,
     pub role: Role,
     pub email: String,

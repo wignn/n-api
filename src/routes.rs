@@ -1,10 +1,11 @@
+use crate::handlers::auth_handler::AuthHandler;
 use crate::handlers::book_handler::BookHandler;
 use crate::AppState;
 use axum::{
     extract::State,
     http::StatusCode,
     response::IntoResponse,
-    routing::{get},
+    routing::{get, post},
     Json, Router,
 };
 use tower::ServiceBuilder;
@@ -24,7 +25,16 @@ pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
 }
 
 fn api_route() -> Router<AppState> {
-    Router::new().nest("/books", book_route())
+    Router::new()
+        .nest("/auth", auth_route())
+        .nest("/books", book_route())
+}
+
+fn auth_route() -> Router<AppState> {
+    Router::new()
+        .route("/register", post(AuthHandler::register))
+        .route("/login", post(AuthHandler::login))
+        .route("/refresh", post(AuthHandler::refresh_token))
 }
 
 fn book_route() -> Router<AppState> {
@@ -34,7 +44,7 @@ fn book_route() -> Router<AppState> {
             get(BookHandler::get_books).post(BookHandler::create_book),
         )
         .route(
-            "/:id",
+            "/{id}",
             get(BookHandler::get_book)
                 .delete(BookHandler::delete_book)
                 .put(BookHandler::update_book),

@@ -1,23 +1,23 @@
 use crate::database::Database;
-use crate::errors::{AppResult};
+use crate::errors::AppResult;
 use crate::models::book_model::{Book, CreateBookDto, UpdateBookDto};
 use crate::models::paging::{PaginatedResponse, PaginationParams};
-use crate::utils::jwt::JwtService;
-
-use uuid::Uuid;
+use cuid2;
+use chrono::Utc;
+use sqlx::QueryBuilder;
 
 pub struct BookService {
     db: Database,
-    jwt_service: JwtService,
 }
 
 impl BookService {
-    pub fn new(db: Database, jwt_service: JwtService) -> Self {
-        Self { db, jwt_service }
+    pub fn new(db: Database) -> Self {
+        Self { db }
     }
 
-
     pub async fn create_book(&self, request: CreateBookDto) -> AppResult<Book> {
+        let id = cuid2::create_id();
+
         let book = sqlx::query_as::<_, Book>(
             r#"
             INSERT INTO "Book" (
@@ -31,18 +31,18 @@ impl BookService {
                       created_at, updated_at
             "#,
         )
-        .bind(Uuid::new_v4())
+        .bind(id)
         .bind(&request.title)
         .bind(&request.author)
         .bind(&request.cover)
         .bind(&request.description)
         .bind(&request.asset)
-        .bind(request.status) // default "draft"
+        .bind(request.status)
         .bind(&request.language)
         .bind(&request.release_date)
-        .bind(request.popular) // default false
-        .bind(chrono::Utc::now())
-        .bind(chrono::Utc::now())
+        .bind(request.popular)
+        .bind(Utc::now())
+        .bind(Utc::now())
         .fetch_one(&self.db.pool)
         .await?;
 
@@ -60,7 +60,7 @@ impl BookService {
             r#"
                 SELECT id, title, author, cover, description, asset,
                        status, language, release_date, popular,
-                        created_at, updated_at
+                       created_at, updated_at
                 FROM "Book"
                 ORDER BY "created_at" DESC
                 LIMIT $1 OFFSET $2
@@ -82,12 +82,13 @@ impl BookService {
         })
     }
 
-    pub async fn get_book(&self, id: Uuid) -> AppResult<Book> {
+    pub async fn get_book(&self, id: String) -> AppResult<Book> {
         let book = sqlx::query_as::<_, Book>(
-            r#" 
+            r#"
             SELECT id, title, author, cover, description, asset, status, language, release_date, popular,
-                created_at, updated_at
-                FROM "Book" WHERE id=$id"#,
+                   created_at, updated_at
+            FROM "Book" WHERE id = $1
+            "#,
         )
         .bind(id)
         .fetch_one(&self.db.pool)
@@ -95,9 +96,7 @@ impl BookService {
         Ok(book)
     }
 
-    pub async fn update_book(&self, id: Uuid, request: UpdateBookDto) -> AppResult<Book> {
-        use sqlx::QueryBuilder;
-
+    pub async fn update_book(&self, id: String, request: UpdateBookDto) -> AppResult<Book> {
         let mut builder = QueryBuilder::new(r#"UPDATE "Book" SET "#);
         let mut separated = builder.separated(", ");
         let mut has_updates = false;
@@ -115,9 +114,7 @@ impl BookService {
             has_updates = true;
         }
         if let Some(ref description) = request.description {
-            separated
-                .push("description = ")
-                .push_bind_unseparated(description);
+            separated.push("description = ").push_bind_unseparated(description);
             has_updates = true;
         }
         if let Some(ref asset) = request.asset {
@@ -129,15 +126,11 @@ impl BookService {
             has_updates = true;
         }
         if let Some(ref language) = request.language {
-            separated
-                .push("language = ")
-                .push_bind_unseparated(language);
+            separated.push("language = ").push_bind_unseparated(language);
             has_updates = true;
         }
         if let Some(ref release_date) = request.release_date {
-            separated
-                .push("release_date = ")
-                .push_bind_unseparated(release_date);
+            separated.push("release_date = ").push_bind_unseparated(release_date);
             has_updates = true;
         }
         if let Some(ref popular) = request.popular {
@@ -149,10 +142,7 @@ impl BookService {
             return self.get_book(id).await;
         }
 
-        separated
-            .push("updated_at = ")
-            .push_bind_unseparated(chrono::Utc::now());
-
+        separated.push("updated_at = ").push_bind_unseparated(Utc::now());
         builder.push(" WHERE id = ").push_bind(id);
         builder.push(" RETURNING *");
 
@@ -164,9 +154,8 @@ impl BookService {
         Ok(updated_book)
     }
 
-
-    pub async fn delete_book(&self, id: Uuid) -> AppResult<Book> {
-        let book = self.get_book(id).await?;
+    pub async fn delete_book(&self, id: String) -> AppResult<Book> {
+        let book = self.get_book(id.clone()).await?;
 
         sqlx::query(r#"DELETE FROM "Book" WHERE id = $1"#)
             .bind(id)
@@ -175,5 +164,4 @@ impl BookService {
 
         Ok(book)
     }
-    
 }

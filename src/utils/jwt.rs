@@ -3,7 +3,7 @@ use crate::models::user_model::Role;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+
 use crate::errors::{AppError, AppResult};
 
 #[derive(Debug, Clone ,Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl JwtService {
 
     pub fn generate_access_token(
         &self,
-        user_id: Uuid,
+        user_id: &str,
         email: &str,
         role: Role,
     ) -> AppResult<String> {
@@ -50,7 +50,7 @@ impl JwtService {
 
     pub fn generate_refresh_token(
         &self,
-        user_id: Uuid,
+        user_id: &str,
         email: &str,
         role: Role,
     ) -> AppResult<String> {
@@ -59,7 +59,7 @@ impl JwtService {
 
     fn generate_token(
         &self,
-        user_id: Uuid,
+        user_id: &str,
         email: &str,
         role: Role,
         token_type: TokenType,

@@ -9,18 +9,27 @@ use novel_api::{routes, AppStateInner};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .with_level(true)
+        .init();
+
+    tracing::info!("Starting application...");
 
     let config = Config::from_env().expect("Failed to load env");
 
     let port = config.port.clone();
 
+    tracing::info!("Connecting to database...");
     let db = Database::new(&config.database_url)
         .await
         .expect("Failed to connect to database");
 
     if let Err(e) = db.test_connection().await {
-        eprintln!("Database test failed: {}", e);
-        eprintln!("Please check your DATABASE_URL and ensure the database is running");
+        tracing::error!("Database test failed: {}", e);
+        tracing::warn!("Please check your DATABASE_URL and ensure the database is running");
+    } else {
+        tracing::info!("Database connection successful");
     }
 
     let cors = CorsLayer::new()
@@ -35,11 +44,12 @@ async fn main() {
 
     let app = routes::create_routes(state, cors);
 
+    tracing::info!("Binding to port {}...", port);
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .expect("Failed to bind to port");
 
-    println!("Server running on http://0.0.0.0:{}", port);
+    tracing::info!("Server running on port {}", port);
 
     axum::serve(listener, app)
         .await
