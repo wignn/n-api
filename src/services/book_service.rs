@@ -1,10 +1,10 @@
 use crate::database::Database;
-use crate::errors::{AppError, AppResult};
-use crate::models::book_model::Book;
+use crate::errors::{AppResult};
+use crate::models::book_model::{Book, CreateBookDto, UpdateBookDto};
 use crate::models::paging::{PaginatedResponse, PaginationParams};
 use crate::utils::jwt::JwtService;
-use sqlx::postgres::PgRow;
-use sqlx::Row;
+
+use uuid::Uuid;
 
 pub struct BookService {
     db: Database,
@@ -16,15 +16,47 @@ impl BookService {
         Self { db, jwt_service }
     }
 
-    pub async fn get_books(&self, params: PaginationParams) -> AppResult<PaginatedResponse<Book>> {
 
+    pub async fn create_book(&self, request: CreateBookDto) -> AppResult<Book> {
+        let book = sqlx::query_as::<_, Book>(
+            r#"
+            INSERT INTO "Book" (
+                id, title, author, cover, description, asset,
+                status, language, release_date, popular,
+                created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id, title, author, cover, description, asset,
+                      status, language, release_date, popular,
+                      created_at, updated_at
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(&request.title)
+        .bind(&request.author)
+        .bind(&request.cover)
+        .bind(&request.description)
+        .bind(&request.asset)
+        .bind(request.status) // default "draft"
+        .bind(&request.language)
+        .bind(&request.release_date)
+        .bind(request.popular) // default false
+        .bind(chrono::Utc::now())
+        .bind(chrono::Utc::now())
+        .fetch_one(&self.db.pool)
+        .await?;
+
+        Ok(book)
+    }
+
+    pub async fn get_books(&self, params: PaginationParams) -> AppResult<PaginatedResponse<Book>> {
         let offset = (params.page - 1) * params.page_size;
 
         let total_items: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Book""#)
             .fetch_one(&self.db.pool)
             .await?;
 
-       let books: Vec<Book> = sqlx::query_as::<_, Book>(
+        let books: Vec<Book> = sqlx::query_as::<_, Book>(
             r#"
                 SELECT id, title, author, cover, description, asset,
                        status, language, release_date, popular,
@@ -50,20 +82,98 @@ impl BookService {
         })
     }
 
-    fn row_to_book(&self, row: PgRow) -> Result<Book, AppError> {
-        Ok(Book {
-            id: row.get("id"),
-            title: row.get("title"),
-            author: row.get("author"),
-            cover: row.get("cover"),
-            asset: row.get("asset"),
-            description: row.get("description"),
-            language: row.get("language"),
-            status: row.get("status"),
-            release_date: row.get("release_date"),
-            popular: row.get("popular"),
-            created_at: row.get("created_at"),
-            updated_at: row.get("updated_at"),
-        })
+    pub async fn get_book(&self, id: Uuid) -> AppResult<Book> {
+        let book = sqlx::query_as::<_, Book>(
+            r#" 
+            SELECT id, title, author, cover, description, asset, status, language, release_date, popular,
+                created_at, updated_at
+                FROM "Book" WHERE id=$id"#,
+        )
+        .bind(id)
+        .fetch_one(&self.db.pool)
+        .await?;
+        Ok(book)
     }
+
+    pub async fn update_book(&self, id: Uuid, request: UpdateBookDto) -> AppResult<Book> {
+        use sqlx::QueryBuilder;
+
+        let mut builder = QueryBuilder::new(r#"UPDATE "Book" SET "#);
+        let mut separated = builder.separated(", ");
+        let mut has_updates = false;
+
+        if let Some(ref title) = request.title {
+            separated.push("title = ").push_bind_unseparated(title);
+            has_updates = true;
+        }
+        if let Some(ref author) = request.author {
+            separated.push("author = ").push_bind_unseparated(author);
+            has_updates = true;
+        }
+        if let Some(ref cover) = request.cover {
+            separated.push("cover = ").push_bind_unseparated(cover);
+            has_updates = true;
+        }
+        if let Some(ref description) = request.description {
+            separated
+                .push("description = ")
+                .push_bind_unseparated(description);
+            has_updates = true;
+        }
+        if let Some(ref asset) = request.asset {
+            separated.push("asset = ").push_bind_unseparated(asset);
+            has_updates = true;
+        }
+        if let Some(ref status) = request.status {
+            separated.push("status = ").push_bind_unseparated(status);
+            has_updates = true;
+        }
+        if let Some(ref language) = request.language {
+            separated
+                .push("language = ")
+                .push_bind_unseparated(language);
+            has_updates = true;
+        }
+        if let Some(ref release_date) = request.release_date {
+            separated
+                .push("release_date = ")
+                .push_bind_unseparated(release_date);
+            has_updates = true;
+        }
+        if let Some(ref popular) = request.popular {
+            separated.push("popular = ").push_bind_unseparated(popular);
+            has_updates = true;
+        }
+
+        if !has_updates {
+            return self.get_book(id).await;
+        }
+
+        separated
+            .push("updated_at = ")
+            .push_bind_unseparated(chrono::Utc::now());
+
+        builder.push(" WHERE id = ").push_bind(id);
+        builder.push(" RETURNING *");
+
+        let updated_book = builder
+            .build_query_as::<Book>()
+            .fetch_one(&self.db.pool)
+            .await?;
+
+        Ok(updated_book)
+    }
+
+
+    pub async fn delete_book(&self, id: Uuid) -> AppResult<Book> {
+        let book = self.get_book(id).await?;
+
+        sqlx::query(r#"DELETE FROM "Book" WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.db.pool)
+            .await?;
+
+        Ok(book)
+    }
+    
 }

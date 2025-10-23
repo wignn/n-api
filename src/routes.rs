@@ -1,10 +1,10 @@
 use crate::handlers::book_handler::BookHandler;
 use crate::AppState;
 use axum::{
-    routing::{delete, get, post, put},
-    response::IntoResponse,
     extract::State,
     http::StatusCode,
+    response::IntoResponse,
+    routing::{get},
     Json, Router,
 };
 use tower::ServiceBuilder;
@@ -28,7 +28,17 @@ fn api_route() -> Router<AppState> {
 }
 
 fn book_route() -> Router<AppState> {
-    Router::new().route("/", get(BookHandler::get_books))
+    Router::new()
+        .route(
+            "/",
+            get(BookHandler::get_books).post(BookHandler::create_book),
+        )
+        .route(
+            "/{id}",
+            get(BookHandler::get_book)
+                .delete(BookHandler::delete_book)
+                .put(BookHandler::update_book),
+        )
 }
 
 pub async fn health_checker_handler() -> impl IntoResponse {
