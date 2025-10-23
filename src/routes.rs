@@ -34,7 +34,7 @@ fn book_route() -> Router<AppState> {
             get(BookHandler::get_books).post(BookHandler::create_book),
         )
         .route(
-            "/{id}",
+            "/:id",
             get(BookHandler::get_book)
                 .delete(BookHandler::delete_book)
                 .put(BookHandler::update_book),
