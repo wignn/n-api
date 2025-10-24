@@ -10,7 +10,8 @@ pub struct Database {
 impl Database {
     pub async fn new(database_url: &str) -> Result<Self> {
         let pool = PgPoolOptions::new()
-            .max_connections(10)
+            .max_connections(100)
+            .min_connections(10)
             .connect(database_url)
             .await?;
 
