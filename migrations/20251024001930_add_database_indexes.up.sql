@@ -1,6 +1,3 @@
--- Add migration script here
--- Add indexes for performance optimization
-
 -- User table indexes
 CREATE INDEX IF NOT EXISTS idx_user_username ON "User"(username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON "User"(email);
