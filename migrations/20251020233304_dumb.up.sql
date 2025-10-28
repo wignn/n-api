@@ -11,6 +11,11 @@ CREATE TYPE "Status" AS ENUM (
     'Drop'
 );
 
+CREATE TYPE Role AS ENUM (
+    'user',
+    'admin'
+);
+
 -- Create tables
 CREATE TABLE "User" (
                         id TEXT PRIMARY KEY,
@@ -25,7 +30,7 @@ CREATE TABLE "User" (
                         last_login TIMESTAMP(3),
                         token TEXT DEFAULT '',
                         val_token TEXT DEFAULT '',
-                        is_admin BOOLEAN NOT NULL DEFAULT false
+                        role Role NOT NULL DEFAULT 'user'
 );
 
 CREATE TABLE "Genre" (
@@ -91,9 +96,9 @@ INSERT INTO "Genre" (id, title, description, created_at, updated_at) VALUES
                                                                          ('cm7s9k9rf0002gw0xz8x6ih8k', 'comedy', 'comedy', '2025-03-02 23:30:01.707', '2025-03-02 23:30:01.707');
 
 -- Insert sample data for Users
-INSERT INTO "User" (id, profile_pic, username, email, name, password, bio, created_at, updated_at, last_login, token, val_token, is_admin) VALUES
-                                                                                                                                               ('cm7odusv20000d9xsjx7aq15p', 'https://little-wood-d8cd.tigfiragnafatur1933.workers.dev/1743605656159-111233.webp', 'wign', 'wign625@gmail.com', 'wign', '$2b$10$tIvj5cKe4RKgaDb90Jma9.CU9BQzk6SQ3wLIunvh6PQPFlO1jvg4K', NULL, '2025-02-28 06:19:06.782', '2025-10-08 03:43:31.142', '2025-10-08 03:43:31.141', '14b58f25-e53c-4ab8-9d3e-f9e467051c3d', '', true),
-                                                                                                                                               ('cm7pv079r0000gj0xwe42re1v', 'https://little-wood-d8cd.tigfiragnafatur1933.workers.dev/1741666539733-111233.webp', 'tigfir', 'tigfiragnafatur1933@gmail.com', 'tigfir', '$2b$10$IF00iGjfIyvWWqCirQfbqeGEuBnYYMotudTeg7pJu3mgRSH7NcstK', NULL, '2025-03-01 07:06:58.383', '2025-10-08 06:46:24.321', NULL, '', '2e50dd6d-3000-4658-8096-464f1c2d9a3b', false);
+INSERT INTO "User" (id, profile_pic, username, email, name, password, bio, created_at, updated_at, last_login, token, val_token, role) VALUES
+                                                                                                                                               ('cm7odusv20000d9xsjx7aq15p', 'https://little-wood-d8cd.tigfiragnafatur1933.workers.dev/1743605656159-111233.webp', 'wign', 'wign625@gmail.com', 'wign', '$2b$10$tIvj5cKe4RKgaDb90Jma9.CU9BQzk6SQ3wLIunvh6PQPFlO1jvg4K', NULL, '2025-02-28 06:19:06.782', '2025-10-08 03:43:31.142', '2025-10-08 03:43:31.141', '14b58f25-e53c-4ab8-9d3e-f9e467051c3d', '', 'user'),
+                                                                                                                                               ('cm7pv079r0000gj0xwe42re1v', 'https://little-wood-d8cd.tigfiragnafatur1933.workers.dev/1741666539733-111233.webp', 'tigfir', 'tigfiragnafatur1933@gmail.com', 'tigfir', '$2b$10$IF00iGjfIyvWWqCirQfbqeGEuBnYYMotudTeg7pJu3mgRSH7NcstK', NULL, '2025-03-01 07:06:58.383', '2025-10-08 06:46:24.321', NULL, '', '2e50dd6d-3000-4658-8096-464f1c2d9a3b', 'admin');
 
 -- Insert sample data for Books
 INSERT INTO "Book" (asset, id, cover, title, author, description, created_at, updated_at, popular, language, release_date, status) VALUES

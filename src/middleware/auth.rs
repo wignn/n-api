@@ -8,21 +8,19 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use uuid::Uuid;
+
 
 
 #[derive(Debug, Clone)]
 pub struct AuthUser {
-    pub id: Uuid,
+    pub id: String,
     pub email: String,
     pub role: Role,
 }
 
 impl AuthUser {
     pub fn from_claims(claims: Claims) -> Result<Self, AppError> {
-        let id = Uuid::parse_str(&claims.sub)
-            .map_err(|_| AppError::Unauthorized)?;
-
+        let id = claims.sub;
         Ok(Self {
             id,
             email: claims.email,

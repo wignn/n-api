@@ -13,7 +13,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
     Router::new()
-        .nest("/api", api_route())
+        .nest("/api", api_route(app_state.clone()))
         .route("/healthy", get(health_checker_handler))
         .route("/db-health", get(db_health_check))
         .layer(
@@ -24,20 +24,28 @@ pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
         .with_state(app_state)
 }
 
-fn api_route() -> Router<AppState> {
+fn api_route(app_state: AppState) -> Router<AppState> {
     Router::new()
-        .nest("/auth", auth_route())
-        .nest("/books", book_route())
+        .nest("/auth", auth_route(app_state.clone()))
+        .nest("/books", book_route(app_state))
 }
 
-fn auth_route() -> Router<AppState> {
+fn auth_route(app_state: AppState) -> Router<AppState> {
+    let protected = Router::new()
+        .route("/me", get(AuthHandler::me))
+        .route("/refresh", post(AuthHandler::refresh_token))
+        .layer(axum::middleware::from_fn_with_state(
+            app_state,
+            crate::middleware::auth::auth_middleware
+        ));
+
     Router::new()
         .route("/register", post(AuthHandler::register))
         .route("/login", post(AuthHandler::login))
-        .route("/refresh", post(AuthHandler::refresh_token))
+        .merge(protected)
 }
 
-fn book_route() -> Router<AppState> {
+fn book_route(app_state: AppState) -> Router<AppState> {
     Router::new()
         .route(
             "/",
@@ -49,7 +57,12 @@ fn book_route() -> Router<AppState> {
                 .delete(BookHandler::delete_book)
                 .put(BookHandler::update_book),
         )
+        .layer(axum::middleware::from_fn_with_state(
+            app_state,
+            crate::middleware::auth::auth_middleware
+        ))
 }
+
 
 pub async fn health_checker_handler() -> impl IntoResponse {
     const MESSAGE: &str = "Simple CRUD API with Rust, SQLX, Postgres, and Axum";

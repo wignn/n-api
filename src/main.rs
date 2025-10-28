@@ -38,7 +38,7 @@ async fn main() {
         .allow_headers(Any);
 
     let state = Arc::new(AppStateInner {
-        db,
+       db,
         config,
     });
 

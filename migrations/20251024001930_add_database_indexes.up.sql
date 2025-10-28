@@ -3,7 +3,7 @@ CREATE INDEX IF NOT EXISTS idx_user_username ON "User"(username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON "User"(email);
 CREATE INDEX IF NOT EXISTS idx_user_token ON "User"(token);
 CREATE INDEX IF NOT EXISTS idx_user_val_token ON "User"(val_token);
-CREATE INDEX IF NOT EXISTS idx_user_is_admin ON "User"(is_admin);
+CREATE INDEX IF NOT EXISTS idx_user_role ON "User"(role);
 CREATE INDEX IF NOT EXISTS idx_user_created_at ON "User"(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_last_login ON "User"(last_login);
 

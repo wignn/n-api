@@ -55,11 +55,14 @@ impl AuthHandler {
         Ok(Json(AuthResponse::success(auth)))
     }
 
-    // pub async fn me(
-    //     State(state): State<AppState>,
-    //     Extension(auth_user): Extension<AuthUser>,
-    // ) -> Result<Json<ApiResponse<crate::models::user_model::User>>, AppError> {
+    pub async fn me(
+        State(state): State<AppState>,
+        Extension(auth_user): Extension<AuthUser>,
+    ) -> Result<Json<ApiResponse<crate::models::user_model::SafeUser>>, AppError> {
         
-    //     let auth = 
-    // }
+        let service = Self::create_service(&state);
+        let user = service.get_user_by_id(auth_user.id.as_str()).await?;
+       
+        Ok(Json(ApiResponse::success(user)))
+    }
 }

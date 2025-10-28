@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::models::user_model::User;
+use crate::models::user_model::{SafeUser};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LoginDto {
@@ -7,16 +7,24 @@ pub struct LoginDto {
     pub password: String,
 }
 
+#[derive(sqlx::Type, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[sqlx(type_name = "role", rename_all = "lowercase")]
+pub enum Role {
+    Admin,
+    User,
+}
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RegisterDto {
-    pub name: String,
+    pub username: String,
     pub email: String,
     pub password: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Auth {
-    pub user: User,
+    pub user: SafeUser,
     pub access_token: String,
     pub refresh_token: String,
 }
@@ -28,7 +36,7 @@ pub struct AuthResponse {
 }
 
 impl Auth {
-    pub fn new(user: User, access_token: String, refresh_token: String) -> Self {
+    pub fn new(user: SafeUser, access_token: String, refresh_token: String) -> Self {
         Self {
             user,
             access_token,
