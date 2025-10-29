@@ -6,7 +6,7 @@ use novel_api::config::Config;
 use novel_api::database::Database;
 use novel_api::{routes, AppStateInner};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
     dotenv().ok();
     tracing_subscriber::fmt()
