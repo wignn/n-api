@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(sqlx::Type, Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[sqlx(type_name = "role", rename_all = "lowercase")]
+#[derive(sqlx::Type, Serialize, Deserialize, Clone, Debug)]
+#[sqlx(type_name = "Role", rename_all = "PascalCase")]
+#[derive(PartialEq)]
 pub enum Role {
-    Admin,
     User,
+    Admin,
 }
 
-
-#[derive(Clone, Debug, FromRow, Serialize)]
+#[derive(Clone, Debug, FromRow, Serialize, Deserialize)]
 pub struct User {
     pub id: String,
     profile_pic: Option<String>,
@@ -21,7 +21,7 @@ pub struct User {
 }
 
 
-#[derive(Clone, Debug, FromRow, Serialize)]
+#[derive(Clone, Debug, FromRow, Serialize, Deserialize)]
 pub struct SafeUser {
     pub id: String,
     pub username: String,

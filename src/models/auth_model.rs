@@ -7,14 +7,6 @@ pub struct LoginDto {
     pub password: String,
 }
 
-#[derive(sqlx::Type, Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[sqlx(type_name = "role", rename_all = "lowercase")]
-pub enum Role {
-    Admin,
-    User,
-}
-
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RegisterDto {
     pub username: String,

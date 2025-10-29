@@ -9,10 +9,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - REDIS_URL=redis://redis:6379
     restart: unless-stopped
 
   db:
@@ -32,6 +35,21 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: novel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes
 
   influxdb:
     image: influxdb:1.8
@@ -65,5 +83,6 @@ services:
 volumes:
   db_api:
      driver: local
+  redis_data:
   influxdb_data:
   grafana_data:

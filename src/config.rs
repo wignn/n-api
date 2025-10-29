@@ -6,6 +6,7 @@ use sqlx::PgPool;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub database_url: String,
+    pub redis_url: String,
     pub jwt_secret_key: String,
     pub jwt_expire_in: i64,
     pub jwt_refresh_expire_in: i64,
@@ -26,6 +27,7 @@ impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
             database_url: Self::get_env("DATABASE_URL")?,
+            redis_url: Self::get_env("REDIS_URL")?,
             jwt_secret_key: Self::get_env("JWT_SECRET_KEY")?,
             jwt_expire_in: Self::get_env_i64("JWT_ACCESS_EXPIRES_IN")?,
             jwt_refresh_expire_in: Self::get_env_i64("JWT_REFRESH_EXPIRES_IN")?,

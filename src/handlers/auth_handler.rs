@@ -1,11 +1,13 @@
 use crate::middleware::auth::AuthUser;
 use crate::models::auth_model::{AuthResponse, LoginDto, RegisterDto};
 use crate::models::response_model::ApiResponse;
+
 use crate::services::auth_service::AuthService;
 use crate::utils::jwt::JwtService;
 use crate::{errors::AppError, AppState};
 use axum::Extension;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+
 use serde::Deserialize;
 
 pub struct AuthHandler;

@@ -70,10 +70,8 @@ fn extract_token_from_header(headers: &HeaderMap) -> Result<String, AppError> {
 #[macro_export]
 macro_rules! require_role {
     ($auth_user:expr, $required_role:expr) => {
-        match ($auth_user.role.clone(), $required_role) {
-            (crate::models::user::UserRole::Admin, _) => Ok(()),
-            (role, required) if role == required => Ok(()),
-            _ => Err(crate::errors::AppError::Forbidden),
+        if $auth_user.role != $required_role {
+            return Err(crate::errors::AppError::Forbidden);
         }
     };
 }

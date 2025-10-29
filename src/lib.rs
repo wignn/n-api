@@ -7,6 +7,7 @@ pub mod routes;
 pub mod services;
 pub mod utils;
 pub mod middleware;
+pub mod redis;
 
 use std::sync::Arc;
 use config::Config;

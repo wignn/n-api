@@ -8,7 +8,10 @@ pub struct PaginationParams {
     pub page: i64,
     #[serde(default = "default_page_size")]
     pub page_size: i64,
+    pub search: Option<String>,
+    pub genres: Option<String>, 
 }
+
 
 fn default_page() -> i64 {
     1
@@ -18,7 +21,7 @@ fn default_page_size() -> i64 {
     10
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub page: i64,

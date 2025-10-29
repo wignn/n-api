@@ -5,11 +5,12 @@ use axum::{
     extract::State,
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use crate::handlers::genre_handler::GenreHandler;
 
 pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
     Router::new()
@@ -27,7 +28,9 @@ pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
 fn api_route(app_state: AppState) -> Router<AppState> {
     Router::new()
         .nest("/auth", auth_route(app_state.clone()))
-        .nest("/books", book_route(app_state))
+        .nest("/books", book_route(app_state.clone()))
+        .nest("/genre",  genre_route(app_state))
+
 }
 
 fn auth_route(app_state: AppState) -> Router<AppState> {
@@ -46,21 +49,51 @@ fn auth_route(app_state: AppState) -> Router<AppState> {
 }
 
 fn book_route(app_state: AppState) -> Router<AppState> {
-    Router::new()
-        .route(
-            "/",
-            get(BookHandler::get_books).post(BookHandler::create_book),
-        )
+    // Public 
+    let public_routes = Router::new()
+        .route("/", get(BookHandler::get_books))
+        .route("/{id}", get(BookHandler::get_book))
+        .layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            crate::middleware::api_key::api_key_middleware
+        ));
+
+    // Protected 
+    let protected_routes = Router::new()
+        .route("/", post(BookHandler::create_book))
         .route(
             "/{id}",
-            get(BookHandler::get_book)
-                .delete(BookHandler::delete_book)
-                .put(BookHandler::update_book),
+            put(BookHandler::update_book).delete(BookHandler::delete_book),
         )
         .layer(axum::middleware::from_fn_with_state(
             app_state,
             crate::middleware::auth::auth_middleware
-        ))
+        ));
+
+    Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
+}
+
+fn genre_route(app_state: AppState) -> Router<AppState>  {
+    let public_routes =  Router::new()
+        .route("/", get(GenreHandler::get_genre))
+        .route("/{id}", get(GenreHandler::get_genres))
+        .layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            crate::middleware::api_key::api_key_middleware
+        ));
+
+    let protected_routes = Router::new()
+        .route("/", post(GenreHandler::create_genre))
+        .route("/{id}", put(GenreHandler::update_genre).delete(GenreHandler::delete_genre))
+        .layer(axum::middleware::from_fn_with_state(
+            app_state,
+            crate::middleware::auth::auth_middleware
+        ));
+    Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
 }
 
 

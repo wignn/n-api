@@ -30,7 +30,7 @@ impl Default for Status {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct Book {
     pub id: String,
     pub title: String,
@@ -110,44 +110,9 @@ pub struct UpdateBookDto {
     pub popular: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BookWithGenres {
-    #[serde(flatten)]
-    pub book: BookDto,
-    pub genres: Vec<GenreDto>,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Genre {
-    pub id: String,
-    pub title: String,
-    pub description: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GenreDto {
-    pub id: String,
-    pub title: String,
-    pub description: String,
-}
 
-impl From<Genre> for GenreDto {
-    fn from(genre: Genre) -> Self {
-        Self {
-            id: genre.id,
-            title: genre.title,
-            description: genre.description,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct BookGenre {
-    pub book_id: String,
-    pub genre_id: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Bookmark {

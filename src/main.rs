@@ -21,7 +21,7 @@ async fn main() {
     let port = config.port.clone();
 
     tracing::info!("Connecting to database...");
-    let db = Database::new(&config.database_url)
+    let db = Database::new(&config.database_url, &config.redis_url)
         .await
         .expect("Failed to connect to database");
 
