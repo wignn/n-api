@@ -18,10 +18,13 @@ impl GenreService {
     pub async fn get_genres(&self) -> AppResult<Vec<GenreDto>> {
         let redis = &self.db.redis;
 
+        if let Ok(Some(cached_genre)) = redis.get_json::<Vec<GenreDto>>("genre:list").await {
+            return Ok(cached_genre);
+        }
         let genre = sqlx::query_as::<_, Genre>(
             r#"
         SELECT id, title, description, created_at, updated_at
-        FROM genres
+        FROM "Genre"
         "#
         )
             .fetch_all(&self.db.pool)
@@ -43,9 +46,9 @@ impl GenreService {
 
         let genre = sqlx::query_as::<_, Genre>(
             r#"
-        SELECT id, title, description, created_at, updated_at
-        FROM genres WHERE id = $1
-        "#
+    SELECT id, title, description, created_at, updated_at
+    FROM "Genre" WHERE id = $1
+    "#
         )
             .bind(&id)
             .fetch_one(&self.db.pool)
@@ -62,7 +65,7 @@ impl GenreService {
             r#"
                     INSERT INTO "Genre" (id, title, description, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5)
-                    RETURNING id, title, description, created_at
+                    RETURNING id, title, description, created_at, updated_at
                 "#
         )
             .bind(cuid2::create_id())
@@ -82,7 +85,7 @@ impl GenreService {
         let redis = &self.db.redis;
         let cache_key = format!("genre:{id}");
 
-        let mut builder = QueryBuilder::new(r#"UPDATE genres SET "#);
+        let mut builder = QueryBuilder::new(r#"UPDATE "Genre" SET "#);
         let mut separated = builder.separated(", ");
         let mut has_updates = false;
 
@@ -122,7 +125,7 @@ impl GenreService {
 
         let deleted_genre = sqlx::query_as::<_, Genre>(
             r#"
-            DELETE FROM genres
+            DELETE FROM "Genre"
             WHERE id = $1
             RETURNING id, title, description, created_at, updated_at
             "#

@@ -30,7 +30,7 @@ impl GenreHandler {
         let genre = service.create_genre(request).await?;
 
         Ok((
-            StatusCode::CREATED,
+            StatusCode::OK,
             Json(ApiResponse::with_message("Genre created successfully", genre)),
         ))
     }
@@ -63,7 +63,7 @@ impl GenreHandler {
         service.delete_genre(id).await?;
 
         Ok((
-            StatusCode::NO_CONTENT,
+            StatusCode::OK,
             Json(ApiResponse::with_message("Genre deleted successfully", ())),
         ))
     }
@@ -85,6 +85,4 @@ impl GenreHandler {
         let genres = service.get_genres().await?;
         Ok((StatusCode::OK, Json(ApiResponse::success(genres))))
     }
-
-
 }

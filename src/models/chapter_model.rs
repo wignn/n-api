@@ -2,7 +2,9 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+
+
+#[derive(Debug, Clone, FromRow)]
 pub struct Chapter {
     pub id: String,
     pub title: String,
@@ -13,6 +15,17 @@ pub struct Chapter {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateChapterDto {
+    pub title: String,
+    pub book_id: String,
+    pub description: String,
+    pub content: String,
+    pub chapter_num: i32,
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChapterDto {

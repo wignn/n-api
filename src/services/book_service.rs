@@ -128,7 +128,6 @@ impl BookService {
 
         let total_items = count_query_builder.fetch_one(&self.db.pool).await?;
 
-        // FETCH query
         let fetch_query = format!(
             r#"
         SELECT id, title, author, cover, description, asset,

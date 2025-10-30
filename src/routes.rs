@@ -77,8 +77,8 @@ fn book_route(app_state: AppState) -> Router<AppState> {
 
 fn genre_route(app_state: AppState) -> Router<AppState>  {
     let public_routes =  Router::new()
-        .route("/", get(GenreHandler::get_genre))
-        .route("/{id}", get(GenreHandler::get_genres))
+        .route("/", get(GenreHandler::get_genres))
+        .route("/{id}", get(GenreHandler::get_genre))
         .layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
             crate::middleware::api_key::api_key_middleware
