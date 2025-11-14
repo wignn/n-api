@@ -8,6 +8,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use tower_cookies::Cookies;
 
 
 
@@ -31,6 +32,7 @@ impl AuthUser {
 
 pub async fn auth_middleware(
     State(state): State<AppState>,
+    cookies: Cookies,
     headers: HeaderMap,
     mut request: Request,
     next: Next,
@@ -43,7 +45,10 @@ pub async fn auth_middleware(
         state.config.jwt_refresh_expire_in,
     );
 
-    let token = extract_token_from_header(&headers)?;
+    // Try to get token from cookie first, then fallback to Authorization header
+    let token = extract_token_from_cookie(&cookies)
+        .or_else(|_| extract_token_from_header(&headers))?;
+    
     let claims = jwt_service.verify_access_token(&token)?;
     let auth_user = AuthUser::from_claims(claims)?;
 
@@ -51,6 +56,16 @@ pub async fn auth_middleware(
     request.extensions_mut().insert(auth_user);
 
     Ok(next.run(request).await)
+}
+
+fn extract_token_from_cookie(cookies: &Cookies) -> Result<String, AppError> {
+    let token = cookies
+        .get("access_token")
+        .ok_or(AppError::Unauthorized)?
+        .value()
+        .to_string();
+    
+    Ok(token)
 }
 
 fn extract_token_from_header(headers: &HeaderMap) -> Result<String, AppError> {

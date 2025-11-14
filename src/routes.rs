@@ -1,130 +1,106 @@
-use crate::handlers::auth_handler::AuthHandler;
-use crate::handlers::book_handler::BookHandler;
-use crate::AppState;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post, put},
-    Json, Router,
+use crate::{
+    handlers::{
+        auth_handler::AuthHandler,
+        book_handler::BookHandler,
+        chapter_handler::ChapterHandler,
+        genre_handler::GenreHandler,
+        health_handler::{health_checker_handler, db_health_check},
+    },
+    middleware::{api_key::api_key_middleware, auth::auth_middleware},
+    AppState,
 };
-use tower::ServiceBuilder;
+use axum::{
+    middleware as axum_middleware,
+    routing::{get, post, put},
+    Router,
+};
+use tower_cookies::CookieManagerLayer;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use crate::handlers::genre_handler::GenreHandler;
+
 
 pub fn create_routes(app_state: AppState, cors: CorsLayer) -> Router {
     Router::new()
-        .nest("/api", api_route(app_state.clone()))
+        .nest("/api", api_routes(app_state.clone()))
         .route("/healthy", get(health_checker_handler))
         .route("/db-health", get(db_health_check))
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(cors),
-        )
         .with_state(app_state)
+        .layer(TraceLayer::new_for_http())
+        .layer(CookieManagerLayer::new())
+        .layer(cors)
 }
 
-fn api_route(app_state: AppState) -> Router<AppState> {
+fn api_routes(app_state: AppState) -> Router<AppState> {
     Router::new()
-        .nest("/auth", auth_route(app_state.clone()))
-        .nest("/books", book_route(app_state.clone()))
-        .nest("/genre",  genre_route(app_state))
-
+        .nest("/auth", auth_routes(app_state.clone()))
+        .merge(genre_routes(app_state.clone()))
+        .merge(book_routes(app_state.clone()))
+        .merge(chapter_routes(app_state.clone()))
 }
 
-fn auth_route(app_state: AppState) -> Router<AppState> {
+
+fn auth_routes(app_state: AppState) -> Router<AppState> {
+    let public = Router::new()
+        .route("/register", post(AuthHandler::register))
+        .route("/login", post(AuthHandler::login));
+
     let protected = Router::new()
         .route("/me", get(AuthHandler::me))
         .route("/refresh", post(AuthHandler::refresh_token))
-        .layer(axum::middleware::from_fn_with_state(
-            app_state,
-            crate::middleware::auth::auth_middleware
-        ));
+        .route("/logout", post(AuthHandler::logout))
+        .route_layer(axum_middleware::from_fn_with_state(app_state, auth_middleware));
 
-    Router::new()
-        .route("/register", post(AuthHandler::register))
-        .route("/login", post(AuthHandler::login))
-        .merge(protected)
+    public.merge(protected)
 }
 
-fn book_route(app_state: AppState) -> Router<AppState> {
-    // Public 
-    let public_routes = Router::new()
-        .route("/", get(BookHandler::get_books))
-        .route("/{id}", get(BookHandler::get_book))
-        .layer(axum::middleware::from_fn_with_state(
-            app_state.clone(),
-            crate::middleware::api_key::api_key_middleware
-        ));
+fn genre_routes(app_state: AppState) -> Router<AppState> {
+    let public = Router::new()
+        .route("/genres", get(GenreHandler::get_genres))
+        .route("/genre/{id}", get(GenreHandler::get_genre))
+        .route_layer(axum_middleware::from_fn_with_state(app_state.clone(), api_key_middleware));
 
-    // Protected 
-    let protected_routes = Router::new()
-        .route("/", post(BookHandler::create_book))
+    let protected = Router::new()
+        .route("/genre", post(GenreHandler::create_genre))
         .route(
-            "/{id}",
+            "/genre/{id}",
+            put(GenreHandler::update_genre).delete(GenreHandler::delete_genre),
+        )
+        .route_layer(axum_middleware::from_fn_with_state(app_state, auth_middleware));
+
+    public.merge(protected)
+}
+
+fn book_routes(app_state: AppState) -> Router<AppState> {
+    let public = Router::new()
+        .route("/books", get(BookHandler::get_books))
+        .route("/book/{id}", get(BookHandler::get_book))
+        .route_layer(axum_middleware::from_fn_with_state(app_state.clone(), api_key_middleware));
+
+    let protected = Router::new()
+        .route("/book", post(BookHandler::create_book))
+        .route(
+            "/book/{id}",
             put(BookHandler::update_book).delete(BookHandler::delete_book),
         )
-        .layer(axum::middleware::from_fn_with_state(
-            app_state,
-            crate::middleware::auth::auth_middleware
-        ));
+        .route_layer(axum_middleware::from_fn_with_state(app_state, auth_middleware));
 
-    Router::new()
-        .merge(public_routes)
-        .merge(protected_routes)
-}
-
-fn genre_route(app_state: AppState) -> Router<AppState>  {
-    let public_routes =  Router::new()
-        .route("/", get(GenreHandler::get_genres))
-        .route("/{id}", get(GenreHandler::get_genre))
-        .layer(axum::middleware::from_fn_with_state(
-            app_state.clone(),
-            crate::middleware::api_key::api_key_middleware
-        ));
-
-    let protected_routes = Router::new()
-        .route("/", post(GenreHandler::create_genre))
-        .route("/{id}", put(GenreHandler::update_genre).delete(GenreHandler::delete_genre))
-        .layer(axum::middleware::from_fn_with_state(
-            app_state,
-            crate::middleware::auth::auth_middleware
-        ));
-    Router::new()
-        .merge(public_routes)
-        .merge(protected_routes)
+    public.merge(protected)
 }
 
 
-pub async fn health_checker_handler() -> impl IntoResponse {
-    const MESSAGE: &str = "Simple CRUD API with Rust, SQLX, Postgres, and Axum";
+fn chapter_routes(app_state: AppState) -> Router<AppState> {
+    let public = Router::new()
+        .route("/chapters", get(ChapterHandler::get_chapters))
+        .route("/chapters/book/{book_id}", get(ChapterHandler::get_chapters_by_book))
+        .route("/chapter/{id}", get(ChapterHandler::get_chapter))
+        .route_layer(axum_middleware::from_fn_with_state(app_state.clone(), api_key_middleware));
 
-    let json_response = serde_json::json!({
-        "status": "success",
-        "message": MESSAGE
-    });
+    let protected = Router::new()
+        .route("/chapter", post(ChapterHandler::create_chapter))
+        .route(
+            "/chapter/{id}",
+            put(ChapterHandler::update_chapter).delete(ChapterHandler::delete_chapter),
+        )
+        .route_layer(axum_middleware::from_fn_with_state(app_state, auth_middleware));
 
-    Json(json_response)
-}
-
-pub async fn db_health_check(State(state): State<AppState>) -> impl IntoResponse {
-    match state.db.test_connection().await {
-        Ok(_) => {
-            let json_response = serde_json::json!({
-                "status": "success",
-                "message": "Database connection is healthy",
-                "database": "connected"
-            });
-            (StatusCode::OK, Json(json_response))
-        }
-        Err(e) => {
-            let json_response = serde_json::json!({
-                "status": "error",
-                "message": format!("Database connection failed: {}", e),
-                "database": "disconnected"
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(json_response))
-        }
-    }
+    public.merge(protected)
 }

@@ -81,7 +81,7 @@ impl GenreService {
 
 
 
-    pub async fn update_genre(&self, request: UpdateGenreDto, id: String) -> AppResult<GenreDto> {
+    pub async fn update_genre(&self, id: String, request: UpdateGenreDto) -> AppResult<GenreDto> {
         let redis = &self.db.redis;
         let cache_key = format!("genre:{id}");
 

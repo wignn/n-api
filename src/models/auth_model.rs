@@ -21,10 +21,21 @@ pub struct Auth {
     pub refresh_token: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthData {
+    pub user: SafeUser,
+}
+
 #[derive(Debug, Serialize)]
 pub struct AuthResponse {
     pub status: String,
     pub data: Auth,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AuthResponseWithoutTokens {
+    pub status: String,
+    pub data: AuthData,
 }
 
 impl Auth {
@@ -42,6 +53,15 @@ impl AuthResponse {
         Self {
             status: "success".to_string(),
             data: auth,
+        }
+    }
+}
+
+impl AuthResponseWithoutTokens {
+    pub fn success(user: SafeUser) -> Self {
+        Self {
+            status: "success".to_string(),
+            data: AuthData { user },
         }
     }
 }

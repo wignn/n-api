@@ -2,6 +2,7 @@ use std::sync::Arc;
 use axum::http::Method;
 use dotenvy::dotenv;
 use tower_http::cors::{CorsLayer, Any};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use novel_api::config::Config;
 use novel_api::database::Database;
 use novel_api::{routes, AppStateInner};
@@ -9,9 +10,14 @@ use novel_api::{routes, AppStateInner};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_target(false)
-        .with_level(true)
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_level(true)
+                .with_thread_names(true)
+        )
+        .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
     tracing::info!("Starting application...");

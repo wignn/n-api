@@ -16,8 +16,7 @@ impl BookService {
     }
 
     pub async fn create_book(&self, request: CreateBookDto) -> AppResult<BookDto> {
-        let id = cuid2::create_id();
-
+        
         let book = sqlx::query_as::<_, Book>(
             r#"
             INSERT INTO "Book" (
@@ -31,7 +30,7 @@ impl BookService {
                       created_at, updated_at
             "#,
         )
-        .bind(id)
+        .bind(cuid2::create_id())
         .bind(&request.title)
         .bind(&request.author)
         .bind(&request.cover)
