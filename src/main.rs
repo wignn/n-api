@@ -48,6 +48,7 @@ async fn main() {
         "http://localhost:5173",
         "http://localhost:3000",
         "https://wign-realm.vercel.app",
+        "https://n-f-theta.vercel.app"
     ];
 
     let cors = CorsLayer::new()
