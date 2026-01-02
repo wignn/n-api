@@ -2,6 +2,7 @@ use crate::{
     handlers::{
         auth_handler::AuthHandler,
         book_handler::BookHandler,
+        bookmark_handler::BookmarkHandler,
         chapter_handler::ChapterHandler,
         genre_handler::GenreHandler,
         health_handler::{db_health_check, health_checker_handler},
@@ -11,6 +12,7 @@ use crate::{
     AppState,
 };
 use axum::{
+    extract::DefaultBodyLimit,
     middleware as axum_middleware,
     routing::{delete, get, post, put},
     Router,
@@ -35,6 +37,7 @@ fn api_routes(app_state: AppState) -> Router<AppState> {
         .merge(genre_routes(app_state.clone()))
         .merge(book_routes(app_state.clone()))
         .merge(chapter_routes(app_state.clone()))
+        .merge(bookmark_routes(app_state.clone()))
         .merge(upload_routes(app_state.clone()))
 }
 
@@ -133,6 +136,26 @@ fn upload_routes(app_state: AppState) -> Router<AppState> {
         .route("/upload/content", post(UploadHandler::upload_content))
         .route("/upload/{id}", get(UploadHandler::get_upload))
         .route("/upload/{id}", delete(UploadHandler::delete_upload))
+        .layer(DefaultBodyLimit::max(50 * 1024 * 1024)) // 50MB limit for file uploads
+        .route_layer(axum_middleware::from_fn_with_state(
+            app_state,
+            auth_middleware,
+        ))
+}
+
+fn bookmark_routes(app_state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/bookmark", post(BookmarkHandler::create_bookmark))
+        .route("/bookmark/{id}", delete(BookmarkHandler::delete_bookmark))
+        .route(
+            "/bookmark/book/{book_id}",
+            delete(BookmarkHandler::delete_bookmark_by_book),
+        )
+        .route(
+            "/bookmark/check/{book_id}",
+            get(BookmarkHandler::check_bookmark),
+        )
+        .route("/bookmarks", get(BookmarkHandler::get_user_bookmarks))
         .route_layer(axum_middleware::from_fn_with_state(
             app_state,
             auth_middleware,

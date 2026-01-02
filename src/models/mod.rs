@@ -1,5 +1,6 @@
 pub mod auth_model;
 pub mod book_model;
+pub mod bookmark_model;
 pub mod chapter_model;
 pub mod genre_model;
 pub mod paging_model;

@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::env;
 use crate::errors::ConfigError;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::env;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -18,10 +18,8 @@ pub struct Config {
     pub s3_endpoint: String,
     pub s3_bucket: String,
     pub cdn_url: String,
-    pub port: String
+    pub port: String,
 }
-
-
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
@@ -34,14 +32,14 @@ impl Config {
             api_key: Self::get_env("API_KEY")?,
             email: Self::get_env("EMAIL")?,
             password: Self::get_env("PASSWORD")?,
-            cloudflare_api_token: Self::get_env("CLOUDFLARE_API_TOKEN")?,
-            cloudflare_secret: Self::get_env("CLOUDFLARE_SECRET")?,
-            s3_endpoint: Self::get_env("S3_ENDPOINT")?,
-            s3_bucket: Self::get_env("S3_BUCKET")?,
-            cdn_url: Self::get_env("CDN_URL")?,
-            port: Self::get_env("PORT")?
+            // Use AWS_* env vars for R2 compatibility
+            cloudflare_api_token: Self::get_env("AWS_ACCESS_KEY_ID")?,
+            cloudflare_secret: Self::get_env("AWS_SECRET_ACCESS_KEY")?,
+            s3_endpoint: Self::get_env("AWS_ENDPOINT")?,
+            s3_bucket: Self::get_env("AWS_BUCKET")?,
+            cdn_url: Self::get_env("AWS_URL")?,
+            port: Self::get_env("PORT")?,
         })
-
     }
 
     fn get_env(key: &str) -> Result<String, ConfigError> {
@@ -63,7 +61,8 @@ impl Config {
 
                 match sqlx::query_scalar::<_, i64>("SELECT 1")
                     .fetch_one(&pool)
-                    .await {
+                    .await
+                {
                     Ok(_) => {
                         println!("✓ Test query successful!");
                         pool.close().await;
@@ -75,7 +74,7 @@ impl Config {
                     }
                 }
             }
-            Err(e) => Err(format!("Database connection failed: {}", e))
+            Err(e) => Err(format!("Database connection failed: {}", e)),
         }
     }
 }
