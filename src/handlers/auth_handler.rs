@@ -7,9 +7,9 @@ use crate::{errors::AppError, AppState};
 use axum::Extension;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
-use tower_cookies::{Cookie, Cookies};
 use time::Duration;
-use tracing::{info, error, warn, instrument};
+use tower_cookies::{Cookie, Cookies};
+use tracing::{error, info, instrument, warn};
 
 pub struct AuthHandler;
 
@@ -62,14 +62,18 @@ impl AuthHandler {
                 refresh_cookie.set_secure(true);
                 refresh_cookie.set_path("/");
                 refresh_cookie.set_same_site(tower_cookies::cookie::SameSite::Strict);
-                refresh_cookie.set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
+                refresh_cookie
+                    .set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
 
                 cookies.add(access_cookie);
                 cookies.add(refresh_cookie);
 
                 info!("Cookies set successfully for new user");
 
-                Ok((StatusCode::CREATED, Json(AuthResponseWithoutTokens::success(auth.user))))
+                Ok((
+                    StatusCode::CREATED,
+                    Json(AuthResponseWithoutTokens::success(auth.user)),
+                ))
             }
             Err(e) => {
                 error!(error = ?e, "Failed to register user");
@@ -85,7 +89,7 @@ impl AuthHandler {
         State(state): State<AppState>,
         cookies: Cookies,
         Json(request): Json<LoginDto>,
-    ) -> Result<Json<AuthResponseWithoutTokens>, AppError> {
+    ) -> Result<Json<crate::models::auth_model::AuthResponse>, AppError> {
         info!("Attempting user login");
 
         let service = Self::create_service(&state);
@@ -111,14 +115,15 @@ impl AuthHandler {
                 refresh_cookie.set_secure(true);
                 refresh_cookie.set_path("/");
                 refresh_cookie.set_same_site(tower_cookies::cookie::SameSite::Strict);
-                refresh_cookie.set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
+                refresh_cookie
+                    .set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
 
                 cookies.add(access_cookie);
                 cookies.add(refresh_cookie);
 
                 info!("Cookies set successfully for login");
 
-                Ok(Json(AuthResponseWithoutTokens::success(auth.user)))
+                Ok(Json(crate::models::auth_model::AuthResponse::success(auth)))
             }
             Err(e) => {
                 warn!(error = ?e, "Login attempt failed");
@@ -167,7 +172,8 @@ impl AuthHandler {
                 refresh_cookie.set_secure(true);
                 refresh_cookie.set_path("/");
                 refresh_cookie.set_same_site(tower_cookies::cookie::SameSite::Strict);
-                refresh_cookie.set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
+                refresh_cookie
+                    .set_max_age(Duration::minutes(state.config.jwt_refresh_expire_in as i64));
 
                 cookies.add(access_cookie);
                 cookies.add(refresh_cookie);
@@ -207,9 +213,7 @@ impl AuthHandler {
     }
 
     #[instrument(skip(cookies))]
-    pub async fn logout(
-        cookies: Cookies,
-    ) -> Result<Json<ApiResponse<String>>, AppError> {
+    pub async fn logout(cookies: Cookies) -> Result<Json<ApiResponse<String>>, AppError> {
         info!("User logging out");
 
         // Remove cookies
@@ -228,6 +232,8 @@ impl AuthHandler {
 
         info!("User logged out successfully, cookies cleared");
 
-        Ok(Json(ApiResponse::success("Logged out successfully".to_string())))
+        Ok(Json(ApiResponse::success(
+            "Logged out successfully".to_string(),
+        )))
     }
 }
