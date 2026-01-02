@@ -2,6 +2,7 @@ use axum::http::{header, HeaderValue, Method};
 use dotenvy::dotenv;
 use novel_api::config::Config;
 use novel_api::database::Database;
+use novel_api::services::storage_service::StorageService;
 use novel_api::{routes, AppStateInner};
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -38,6 +39,10 @@ async fn main() {
         tracing::info!("Database connection successful");
     }
 
+    // Initialize storage service for R2
+    tracing::info!("Initializing storage service...");
+    let storage = StorageService::new(&config);
+
     // CORS configuration - support credentials with specific origins
     let allowed_origins = [
         "http://localhost:5173",
@@ -68,7 +73,11 @@ async fn main() {
         ])
         .allow_credentials(true);
 
-    let state = Arc::new(AppStateInner { db, config });
+    let state = Arc::new(AppStateInner {
+        db,
+        config,
+        storage,
+    });
 
     let app = routes::create_routes(state, cors);
 

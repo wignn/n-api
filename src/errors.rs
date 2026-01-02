@@ -7,7 +7,9 @@ pub enum ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::MissingVar(var) => write!(f, "Environment variable {} not configured", var),
+            ConfigError::MissingVar(var) => {
+                write!(f, "Environment variable {} not configured", var)
+            }
             ConfigError::ParseError(var, err) => write!(f, "Failed to parse {}: {}", var, err),
         }
     }
@@ -15,14 +17,14 @@ impl std::fmt::Display for ConfigError {
 
 impl std::error::Error for ConfigError {}
 
-use thiserror::Error;
+use axum::extract::rejection::JsonRejection;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use axum::extract::rejection::JsonRejection;
 use serde_json::json;
+use thiserror::Error;
 use validator::ValidationErrors;
 
 #[derive(Error, Debug)]
@@ -62,6 +64,9 @@ pub enum AppError {
 
     #[error("Internal server error")]
     InternalServer,
+
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 impl IntoResponse for AppError {
@@ -69,7 +74,11 @@ impl IntoResponse for AppError {
         let (status, error_message, details) = match self {
             AppError::Database(ref e) => {
                 tracing::error!("Database error: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), None)
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    None,
+                )
             }
             AppError::ValidationError(ref errors) => {
                 let error_messages: Vec<String> = errors
@@ -77,7 +86,8 @@ impl IntoResponse for AppError {
                     .into_iter()
                     .flat_map(|(field, errors)| {
                         errors.iter().map(move |error| {
-                            let message = error.message
+                            let message = error
+                                .message
                                 .as_ref()
                                 .map(|m| m.to_string())
                                 .unwrap_or_else(|| "Invalid value".to_string());
@@ -89,25 +99,39 @@ impl IntoResponse for AppError {
                 (
                     StatusCode::BAD_REQUEST,
                     "Validation failed".to_string(),
-                    Some(json!({"messages": error_messages}))
+                    Some(json!({"messages": error_messages})),
                 )
             }
-            AppError::JsonRejection(ref rejection) => {
-                (
-                    StatusCode::BAD_REQUEST,
-                    "Invalid JSON format".to_string(),
-                    Some(json!({"details": rejection.to_string()}))
-                )
-            }
+            AppError::JsonRejection(ref rejection) => (
+                StatusCode::BAD_REQUEST,
+                "Invalid JSON format".to_string(),
+                Some(json!({"details": rejection.to_string()})),
+            ),
             AppError::Jwt(_) => (StatusCode::UNAUTHORIZED, "Invalid token".to_string(), None),
-            AppError::PasswordHash(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), None),
+            AppError::PasswordHash(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+                None,
+            ),
             AppError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.clone(), None),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string(), None),
             AppError::Forbidden => (StatusCode::FORBIDDEN, "Forbidden".to_string(), None),
             AppError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.clone(), None),
             AppError::Conflict(ref msg) => (StatusCode::CONFLICT, msg.clone(), None),
             AppError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.clone(), None),
-            AppError::InternalServer => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), None),
+            AppError::InternalServer => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+                None,
+            ),
+            AppError::Internal(ref msg) => {
+                tracing::error!("Internal error: {}", msg);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    None,
+                )
+            }
         };
 
         let mut body = json!({
