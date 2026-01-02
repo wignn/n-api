@@ -1,36 +1,33 @@
-FROM rust:latest AS builder
+FROM rust:alpine AS builder
 
 LABEL authors="tigfi"
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+
+RUN apk add --no-cache \
+    musl-dev \
+    pkgconfig \
+    openssl-dev \
+    openssl-libs-static \
+    postgresql-dev
 
 WORKDIR /app
 
 COPY Cargo.toml ./
-
-COPY Cargo.loc[k] ./
+COPY Cargo.lock ./
 
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-
 RUN cargo build --release && rm src/main.rs
 
 COPY src ./src
-
 RUN touch src/main.rs && cargo build --release
 
-FROM debian:bookworm-slim
+FROM alpine:latest
 
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     ca-certificates \
     libssl3 \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    libpq
 
-RUN useradd -r -s /bin/false -m -d /app appuser
+RUN adduser -D -h /app appuser
 
 WORKDIR /app
 
@@ -43,6 +40,6 @@ USER appuser
 EXPOSE 4001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4001/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:4001/healthy || exit 1
 
 CMD ["./novel-api"]
