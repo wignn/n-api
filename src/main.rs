@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use axum::http::Method;
+use axum::http::{header, HeaderValue, Method};
 use dotenvy::dotenv;
-use tower_http::cors::{CorsLayer, Any};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use novel_api::config::Config;
 use novel_api::database::Database;
 use novel_api::{routes, AppStateInner};
+use std::sync::Arc;
+use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() {
@@ -15,7 +15,7 @@ async fn main() {
             tracing_subscriber::fmt::layer()
                 .with_target(false)
                 .with_level(true)
-                .with_thread_names(true)
+                .with_thread_names(true),
         )
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
@@ -38,15 +38,37 @@ async fn main() {
         tracing::info!("Database connection successful");
     }
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods([Method::GET, Method::PATCH, Method::PUT, Method::DELETE, Method::POST])
-        .allow_headers(Any);
+    // CORS configuration - support credentials with specific origins
+    let allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://fenrir-realm.vercel.app",
+    ];
 
-    let state = Arc::new(AppStateInner {
-       db,
-        config,
-    });
+    let cors = CorsLayer::new()
+        .allow_origin(
+            allowed_origins
+                .iter()
+                .map(|origin| origin.parse::<HeaderValue>().unwrap())
+                .collect::<Vec<_>>(),
+        )
+        .allow_methods([
+            Method::GET,
+            Method::PATCH,
+            Method::PUT,
+            Method::DELETE,
+            Method::POST,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            header::ACCEPT,
+            header::HeaderName::from_static("x-api-key"),
+        ])
+        .allow_credentials(true);
+
+    let state = Arc::new(AppStateInner { db, config });
 
     let app = routes::create_routes(state, cors);
 
