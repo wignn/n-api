@@ -39,11 +39,9 @@ async fn main() {
         tracing::info!("Database connection successful");
     }
 
-    // Initialize storage service for R2
     tracing::info!("Initializing storage service...");
     let storage = StorageService::new(&config);
 
-    // CORS configuration - support credentials with specific origins
     let allowed_origins = [
         "http://localhost:5173",
         "http://localhost:3000",
