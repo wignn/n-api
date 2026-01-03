@@ -1,19 +1,17 @@
-use chrono::Utc;
-use sqlx::QueryBuilder;
 use crate::database::Database;
 use crate::errors::AppResult;
 use crate::models::genre_model::{CreateGenreDto, Genre, GenreDto, UpdateGenreDto};
+use chrono::Utc;
+use sqlx::QueryBuilder;
 
 pub struct GenreService {
     db: Database,
 }
 
-
 impl GenreService {
     pub fn new(db: Database) -> Self {
         Self { db }
     }
-
 
     pub async fn get_genres(&self) -> AppResult<Vec<GenreDto>> {
         let redis = &self.db.redis;
@@ -25,16 +23,45 @@ impl GenreService {
             r#"
         SELECT id, title, description, created_at, updated_at
         FROM "Genre"
-        "#
+        "#,
         )
-            .fetch_all(&self.db.pool)
-            .await?;
+        .fetch_all(&self.db.pool)
+        .await?;
 
         let genres: Vec<GenreDto> = genre.into_iter().map(Into::into).collect();
 
-        let _ = redis.set_json(&"genre:list".to_string(), &genres, 600).await;
+        let _ = redis
+            .set_json(&"genre:list".to_string(), &genres, 600)
+            .await;
 
         Ok(genres)
+    }
+
+    pub async fn get_genres_by_book(&self, book_id: String) -> AppResult<Vec<GenreDto>> {
+        let redis = &self.db.redis;
+        let cache_key = format!("book:{}:genres", book_id);
+
+        if let Ok(Some(cached_genres)) = redis.get_json::<Vec<GenreDto>>(&cache_key).await {
+            return Ok(cached_genres);
+        }
+
+        let genres = sqlx::query_as::<_, Genre>(
+            r#"
+            SELECT g.id, g.title, g.description, g.created_at, g.updated_at
+            FROM "Genre" g
+            INNER JOIN "BookGenre" bg ON g.id = bg.genre_id
+            WHERE bg.book_id = $1
+            ORDER BY g.title ASC
+            "#,
+        )
+        .bind(&book_id)
+        .fetch_all(&self.db.pool)
+        .await?;
+
+        let genres_dto: Vec<GenreDto> = genres.into_iter().map(Into::into).collect();
+        let _ = redis.set_json(&cache_key, &genres_dto, 600).await;
+
+        Ok(genres_dto)
     }
     pub async fn get_genre(&self, id: String) -> AppResult<GenreDto> {
         let redis = &self.db.redis;
@@ -48,12 +75,11 @@ impl GenreService {
             r#"
     SELECT id, title, description, created_at, updated_at
     FROM "Genre" WHERE id = $1
-    "#
+    "#,
         )
-            .bind(&id)
-            .fetch_one(&self.db.pool)
-            .await?;
-
+        .bind(&id)
+        .fetch_one(&self.db.pool)
+        .await?;
 
         let data: GenreDto = genre.into();
         let _ = redis.set_json(&cache_key, &data, 600).await;
@@ -66,20 +92,18 @@ impl GenreService {
                     INSERT INTO "Genre" (id, title, description, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5)
                     RETURNING id, title, description, created_at, updated_at
-                "#
+                "#,
         )
-            .bind(cuid2::create_id())
-            .bind(&request.title)
-            .bind(&request.description)
-            .bind(Utc::now())
-            .bind(Utc::now())
-            .fetch_one(&self.db.pool)
-            .await?;
+        .bind(cuid2::create_id())
+        .bind(&request.title)
+        .bind(&request.description)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .fetch_one(&self.db.pool)
+        .await?;
 
         Ok(genre.into())
     }
-
-
 
     pub async fn update_genre(&self, id: String, request: UpdateGenreDto) -> AppResult<GenreDto> {
         let redis = &self.db.redis;
@@ -128,11 +152,11 @@ impl GenreService {
             DELETE FROM "Genre"
             WHERE id = $1
             RETURNING id, title, description, created_at, updated_at
-            "#
+            "#,
         )
-            .bind(&id)
-            .fetch_one(&self.db.pool)
-            .await?;
+        .bind(&id)
+        .fetch_one(&self.db.pool)
+        .await?;
 
         let _ = redis.del(&cache_key).await;
         let _ = redis.del_prefix("genre:list").await;

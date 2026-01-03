@@ -1,17 +1,19 @@
-use axum::{
-    extract::{Path, State},
-    Extension, Json,
-};
-use axum::http::StatusCode;
 use crate::{
-    require_role, AppState, errors::AppError,
+    errors::AppError,
     middleware::auth::AuthUser,
     models::genre_model::{CreateGenreDto, GenreDto, UpdateGenreDto},
     models::response_model::ApiResponse,
     models::user_model::Role,
+    require_role,
     services::genre_service::GenreService,
+    AppState,
 };
-use tracing::{info, error, instrument};
+use axum::http::StatusCode;
+use axum::{
+    extract::{Path, State},
+    Extension, Json,
+};
+use tracing::{error, info, instrument};
 
 pub struct GenreHandler;
 
@@ -19,7 +21,6 @@ impl GenreHandler {
     fn create_service(state: &AppState) -> GenreService {
         GenreService::new(state.db.clone())
     }
-
 
     #[instrument(skip(state, request), fields(
     user_id = %auth_user.id,
@@ -45,7 +46,10 @@ impl GenreHandler {
                 );
                 Ok((
                     StatusCode::CREATED,
-                    Json(ApiResponse::with_message("Genre created successfully", genre)),
+                    Json(ApiResponse::with_message(
+                        "Genre created successfully",
+                        genre,
+                    )),
                 ))
             }
             Err(e) => {
@@ -75,7 +79,10 @@ impl GenreHandler {
                 );
                 Ok((
                     StatusCode::OK,
-                    Json(ApiResponse::with_message("Genre updated successfully", genre)),
+                    Json(ApiResponse::with_message(
+                        "Genre updated successfully",
+                        genre,
+                    )),
                 ))
             }
             Err(e) => {
@@ -84,7 +91,6 @@ impl GenreHandler {
             }
         }
     }
-
 
     #[instrument(skip(state), fields(
         user_id = %auth_user.id,
@@ -127,10 +133,7 @@ impl GenreHandler {
         Ok((StatusCode::OK, Json(ApiResponse::success(genre))))
     }
 
-    #[tracing::instrument(
-        name = "get_genres",
-        skip(state),
-    )]
+    #[tracing::instrument(name = "get_genres", skip(state))]
     pub async fn get_genres(
         State(state): State<AppState>,
     ) -> Result<(StatusCode, Json<ApiResponse<Vec<GenreDto>>>), AppError> {
@@ -141,4 +144,15 @@ impl GenreHandler {
         Ok((StatusCode::OK, Json(ApiResponse::success(genres))))
     }
 
+    #[instrument(skip(state), fields(book_id = %book_id))]
+    pub async fn get_genres_by_book(
+        State(state): State<AppState>,
+        Path(book_id): Path<String>,
+    ) -> Result<(StatusCode, Json<ApiResponse<Vec<GenreDto>>>), AppError> {
+        info!("Fetching genres for book");
+        let service = Self::create_service(&state);
+        let genres = service.get_genres_by_book(book_id).await?;
+        info!(count = genres.len(), "Book genres fetched successfully");
+        Ok((StatusCode::OK, Json(ApiResponse::success(genres))))
+    }
 }

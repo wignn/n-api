@@ -85,6 +85,7 @@ fn book_routes(app_state: AppState) -> Router<AppState> {
     let public = Router::new()
         .route("/books", get(BookHandler::get_books))
         .route("/book/{id}", get(BookHandler::get_book))
+        .route("/book/{id}/genres", get(GenreHandler::get_genres_by_book))
         .route_layer(axum_middleware::from_fn_with_state(
             app_state.clone(),
             api_key_middleware,
