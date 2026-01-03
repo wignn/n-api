@@ -45,9 +45,10 @@ async fn main() {
     let allowed_origins = [
         "http://localhost:5173",
         "http://localhost:3000",
+        "https://novel.wign.cloud",
         "https://wign-realm.vercel.app",
         "https://n-f-theta.vercel.app",
-        "https://n-f-git-main-wigns-projects.vercel.app"
+        "https://n-f-git-main-wigns-projects.vercel.app",
     ];
 
     let cors = CorsLayer::new()
