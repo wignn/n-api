@@ -70,9 +70,10 @@ impl AuthHandler {
 
                 info!("Cookies set successfully for new user");
 
+                // Return full auth response with tokens (same as login)
                 Ok((
                     StatusCode::CREATED,
-                    Json(AuthResponseWithoutTokens::success(auth.user)),
+                    Json(crate::models::auth_model::AuthResponse::success(auth)),
                 ))
             }
             Err(e) => {
