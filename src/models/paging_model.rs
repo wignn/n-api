@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
-
 #[derive(Debug, Deserialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
@@ -9,9 +7,9 @@ pub struct PaginationParams {
     #[serde(default = "default_page_size")]
     pub page_size: i64,
     pub search: Option<String>,
-    pub genres: Option<String>, 
+    pub genres: Option<String>,
+    pub sort: Option<String>, // newest, oldest, popular, alphabetical
 }
-
 
 fn default_page() -> i64 {
     1

@@ -16,7 +16,6 @@ impl BookService {
     }
 
     pub async fn create_book(&self, request: CreateBookDto) -> AppResult<BookDto> {
-        
         let book = sqlx::query_as::<_, Book>(
             r#"
             INSERT INTO "Book" (
@@ -48,20 +47,26 @@ impl BookService {
         Ok(book.into())
     }
 
-
-    pub async fn get_books(&self, params: PaginationParams) -> AppResult<PaginatedResponse<BookDto>> {
+    pub async fn get_books(
+        &self,
+        params: PaginationParams,
+    ) -> AppResult<PaginatedResponse<BookDto>> {
         let offset = (params.page - 1) * params.page_size;
         let redis = &self.db.redis;
 
         let cache_key = format!(
-            "books:list:page:{}:size:{}:search:{}:genres:{}",
+            "books:list:page:{}:size:{}:search:{}:genres:{}:sort:{}",
             params.page,
             params.page_size,
             params.search.as_deref().unwrap_or(""),
-            params.genres.as_deref().unwrap_or("")
+            params.genres.as_deref().unwrap_or(""),
+            params.sort.as_deref().unwrap_or("newest")
         );
 
-        if let Ok(Some(cached_response)) = redis.get_json::<PaginatedResponse<BookDto>>(&cache_key).await {
+        if let Ok(Some(cached_response)) = redis
+            .get_json::<PaginatedResponse<BookDto>>(&cache_key)
+            .await
+        {
             return Ok(cached_response);
         }
 
@@ -127,6 +132,14 @@ impl BookService {
 
         let total_items = count_query_builder.fetch_one(&self.db.pool).await?;
 
+        // Determine ORDER BY clause based on sort parameter
+        let order_by = match params.sort.as_deref() {
+            Some("oldest") => "ORDER BY created_at ASC",
+            Some("popular") => "ORDER BY popular DESC, created_at DESC",
+            Some("alphabetical") => "ORDER BY title ASC",
+            _ => "ORDER BY created_at DESC", // default: newest
+        };
+
         let fetch_query = format!(
             r#"
         SELECT id, title, author, cover, description, asset,
@@ -134,10 +147,11 @@ impl BookService {
                created_at, updated_at
         FROM "Book"
         {}
-        ORDER BY created_at DESC
+        {}
         LIMIT ${} OFFSET ${}
         "#,
             where_clause,
+            order_by,
             bind_index,
             bind_index + 1
         );
@@ -154,9 +168,7 @@ impl BookService {
             }
         }
 
-        fetch_query_builder = fetch_query_builder
-            .bind(params.page_size)
-            .bind(offset);
+        fetch_query_builder = fetch_query_builder.bind(params.page_size).bind(offset);
 
         let books = fetch_query_builder.fetch_all(&self.db.pool).await?;
 
@@ -197,7 +209,7 @@ impl BookService {
 
         let data: BookDto = book.into();
         let _ = redis.set_json(&cache_key, &data, 600).await;
- 
+
         Ok(data)
     }
 
@@ -268,7 +280,7 @@ impl BookService {
             .await?;
 
         redis.del(&cache_key).await.ok();
-        let data:BookDto = updated_book.into();
+        let data: BookDto = updated_book.into();
         let _ = redis.del_prefix("books:list:").await;
         Ok(data)
     }
