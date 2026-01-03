@@ -1,5 +1,5 @@
+use crate::models::user_model::SafeUser;
 use serde::{Deserialize, Serialize};
-use crate::models::user_model::{SafeUser};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LoginDto {
@@ -12,6 +12,19 @@ pub struct RegisterDto {
     pub username: String,
     pub email: String,
     pub password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateProfileDto {
+    pub username: Option<String>,
+    pub bio: Option<String>,
+    pub profile_pic: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChangePasswordDto {
+    pub current_password: String,
+    pub new_password: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

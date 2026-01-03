@@ -237,4 +237,120 @@ impl AuthHandler {
             "Logged out successfully".to_string(),
         )))
     }
+
+    #[instrument(skip(state, request), fields(user_id = %auth_user.id))]
+    pub async fn update_profile(
+        State(state): State<AppState>,
+        Extension(auth_user): Extension<AuthUser>,
+        Json(request): Json<crate::models::auth_model::UpdateProfileDto>,
+    ) -> Result<Json<ApiResponse<crate::models::user_model::SafeUser>>, AppError> {
+        info!("Updating user profile");
+
+        let service = Self::create_service(&state);
+
+        match service.update_profile(&auth_user.id, request).await {
+            Ok(user) => {
+                info!("Profile updated successfully");
+                Ok(Json(ApiResponse::success(user)))
+            }
+            Err(e) => {
+                error!(error = ?e, "Failed to update profile");
+                Err(e)
+            }
+        }
+    }
+
+    #[instrument(skip(state, request), fields(user_id = %auth_user.id))]
+    pub async fn change_password(
+        State(state): State<AppState>,
+        Extension(auth_user): Extension<AuthUser>,
+        Json(request): Json<crate::models::auth_model::ChangePasswordDto>,
+    ) -> Result<Json<ApiResponse<String>>, AppError> {
+        info!("Changing user password");
+
+        let service = Self::create_service(&state);
+
+        match service
+            .change_password(
+                &auth_user.id,
+                &request.current_password,
+                &request.new_password,
+            )
+            .await
+        {
+            Ok(_) => {
+                info!("Password changed successfully");
+                Ok(Json(ApiResponse::success(
+                    "Password changed successfully".to_string(),
+                )))
+            }
+            Err(e) => {
+                error!(error = ?e, "Failed to change password");
+                Err(e)
+            }
+        }
+    }
+
+    #[instrument(skip(state, multipart), fields(user_id = %auth_user.id))]
+    pub async fn upload_avatar(
+        State(state): State<AppState>,
+        Extension(auth_user): Extension<AuthUser>,
+        mut multipart: axum::extract::Multipart,
+    ) -> Result<Json<ApiResponse<String>>, AppError> {
+        info!("Uploading avatar");
+
+        let service = Self::create_service(&state);
+
+        // Extract file from multipart
+        let mut file_bytes: Option<Vec<u8>> = None;
+        let mut content_type: Option<String> = None;
+
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|e| AppError::BadRequest(format!("Failed to read multipart: {}", e)))?
+        {
+            let name = field.name().unwrap_or("").to_string();
+            if name == "avatar" || name == "file" {
+                content_type = field.content_type().map(|s| s.to_string());
+                file_bytes = Some(
+                    field
+                        .bytes()
+                        .await
+                        .map_err(|e| AppError::BadRequest(format!("Failed to read file: {}", e)))?
+                        .to_vec(),
+                );
+                break;
+            }
+        }
+
+        let bytes =
+            file_bytes.ok_or_else(|| AppError::BadRequest("No file uploaded".to_string()))?;
+        let ct = content_type.unwrap_or_else(|| "image/jpeg".to_string());
+
+        // Validate content type
+        if !ct.starts_with("image/") {
+            return Err(AppError::BadRequest(
+                "Only image files are allowed".to_string(),
+            ));
+        }
+
+        // Limit file size (5MB)
+        if bytes.len() > 5 * 1024 * 1024 {
+            return Err(AppError::BadRequest(
+                "File size must be less than 5MB".to_string(),
+            ));
+        }
+
+        match service.upload_avatar(&auth_user.id, bytes, &ct).await {
+            Ok(url) => {
+                info!("Avatar uploaded successfully");
+                Ok(Json(ApiResponse::success(url)))
+            }
+            Err(e) => {
+                error!(error = ?e, "Failed to upload avatar");
+                Err(e)
+            }
+        }
+    }
 }

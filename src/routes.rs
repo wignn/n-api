@@ -50,6 +50,9 @@ fn auth_routes(app_state: AppState) -> Router<AppState> {
         .route("/me", get(AuthHandler::me))
         .route("/refresh", post(AuthHandler::refresh_token))
         .route("/logout", post(AuthHandler::logout))
+        .route("/profile", put(AuthHandler::update_profile))
+        .route("/password", put(AuthHandler::change_password))
+        .route("/avatar", post(AuthHandler::upload_avatar))
         .route_layer(axum_middleware::from_fn_with_state(
             app_state,
             auth_middleware,

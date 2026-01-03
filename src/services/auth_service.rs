@@ -158,4 +158,128 @@ impl AuthService {
         let _ = redis.set_json(&cache_key, &user, 600).await;
         Ok(user)
     }
+
+    pub async fn update_profile(
+        &self,
+        user_id: &str,
+        request: crate::models::auth_model::UpdateProfileDto,
+    ) -> AppResult<SafeUser> {
+        let redis = &self.db.redis;
+
+        // Check username uniqueness if being changed
+        if let Some(ref new_username) = request.username {
+            let existing = sqlx::query_scalar::<_, String>(
+                r#"SELECT id FROM "User" WHERE username = $1 AND id != $2"#,
+            )
+            .bind(new_username)
+            .bind(user_id)
+            .fetch_optional(&self.db.pool)
+            .await?;
+
+            if existing.is_some() {
+                return Err(AppError::BadRequest("Username already taken".to_string()));
+            }
+        }
+
+        let user = sqlx::query_as::<_, SafeUser>(
+            r#"
+            UPDATE "User" 
+            SET username = COALESCE($2, username),
+                bio = COALESCE($3, bio),
+                profile_pic = COALESCE($4, profile_pic),
+                updated_at = $5
+            WHERE id = $1
+            RETURNING id, username, email, bio, profile_pic, role
+            "#,
+        )
+        .bind(user_id)
+        .bind(&request.username)
+        .bind(&request.bio)
+        .bind(&request.profile_pic)
+        .bind(Utc::now())
+        .fetch_one(&self.db.pool)
+        .await?;
+
+        // Clear cache
+        let _ = redis.del(&format!("user:{user_id}")).await;
+
+        Ok(user)
+    }
+
+    pub async fn change_password(
+        &self,
+        user_id: &str,
+        current_password: &str,
+        new_password: &str,
+    ) -> AppResult<()> {
+        let redis = &self.db.redis;
+
+        // Get user with password
+        let user = sqlx::query_as::<_, User>(
+            r#"SELECT id, username, email, password, role, bio, profile_pic FROM "User" WHERE id = $1"#
+        )
+        .bind(user_id)
+        .fetch_one(&self.db.pool)
+        .await
+        .map_err(|_| AppError::NotFound("User not found".to_string()))?;
+
+        // Verify current password
+        if !utils::password::PasswordService::verify_password(current_password, &user.password)
+            .map_err(|_| AppError::BadRequest("Invalid current password".to_string()))?
+        {
+            return Err(AppError::BadRequest("Invalid current password".to_string()));
+        }
+
+        // Hash new password
+        let hashed_password = utils::password::PasswordService::hash_password(new_password)
+            .map_err(|e| AppError::PasswordHash(e.to_string()))?;
+
+        // Update password
+        sqlx::query(r#"UPDATE "User" SET password = $2, updated_at = $3 WHERE id = $1"#)
+            .bind(user_id)
+            .bind(&hashed_password)
+            .bind(Utc::now())
+            .execute(&self.db.pool)
+            .await?;
+
+        // Clear cache
+        let _ = redis.del(&format!("user:{user_id}")).await;
+
+        Ok(())
+    }
+
+    pub async fn upload_avatar(
+        &self,
+        user_id: &str,
+        bytes: Vec<u8>,
+        content_type: &str,
+    ) -> AppResult<String> {
+        let redis = &self.db.redis;
+
+        // Generate unique filename
+        let extension = match content_type {
+            "image/png" => "png",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            _ => "jpg",
+        };
+        let filename = format!("avatars/{}/{}.{}", user_id, cuid2::create_id(), extension);
+
+        // Upload to R2 via storage service
+        let storage = &self.db.storage;
+        let url = storage.upload_bytes(&filename, bytes, content_type).await?;
+
+        // Update user profile_pic in database
+        sqlx::query(r#"UPDATE "User" SET profile_pic = $2, updated_at = $3 WHERE id = $1"#)
+            .bind(user_id)
+            .bind(&url)
+            .bind(Utc::now())
+            .execute(&self.db.pool)
+            .await?;
+
+        // Clear cache
+        let _ = redis.del(&format!("user:{user_id}")).await;
+
+        Ok(url)
+    }
 }
