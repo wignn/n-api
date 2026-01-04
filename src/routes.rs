@@ -53,6 +53,7 @@ fn auth_routes(app_state: AppState) -> Router<AppState> {
         .route("/profile", put(AuthHandler::update_profile))
         .route("/password", put(AuthHandler::change_password))
         .route("/avatar", post(AuthHandler::upload_avatar))
+        .route("/fcm-token", post(AuthHandler::save_fcm_token))
         .route_layer(axum_middleware::from_fn_with_state(
             app_state,
             auth_middleware,

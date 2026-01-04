@@ -18,6 +18,11 @@ pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
 
+#[derive(Deserialize)]
+pub struct FcmTokenRequest {
+    pub fcm_token: String,
+}
+
 impl AuthHandler {
     fn create_service(state: &AppState) -> AuthService {
         let jwt_service = JwtService::new(
@@ -355,6 +360,31 @@ impl AuthHandler {
             }
             Err(e) => {
                 error!(error = ?e, "Failed to upload avatar");
+                Err(e)
+            }
+        }
+    }
+
+    #[instrument(skip(state, request), fields(user_id = %auth_user.id))]
+    pub async fn save_fcm_token(
+        State(state): State<AppState>,
+        Extension(auth_user): Extension<AuthUser>,
+        Json(request): Json<FcmTokenRequest>,
+    ) -> Result<Json<ApiResponse<String>>, AppError> {
+        info!("Saving FCM token for user");
+
+        let service = Self::create_service(&state);
+
+        match service
+            .save_fcm_token(&auth_user.id, &request.fcm_token)
+            .await
+        {
+            Ok(_) => {
+                info!("FCM token saved successfully");
+                Ok(Json(ApiResponse::success("FCM token saved".to_string())))
+            }
+            Err(e) => {
+                error!(error = ?e, "Failed to save FCM token");
                 Err(e)
             }
         }

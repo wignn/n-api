@@ -290,4 +290,15 @@ impl AuthService {
 
         Ok(url)
     }
+
+    pub async fn save_fcm_token(&self, user_id: &str, fcm_token: &str) -> AppResult<()> {
+        sqlx::query(r#"UPDATE "User" SET fcm_token = $2, updated_at = $3 WHERE id = $1"#)
+            .bind(user_id)
+            .bind(fcm_token)
+            .bind(Utc::now())
+            .execute(&self.db.pool)
+            .await?;
+
+        Ok(())
+    }
 }
