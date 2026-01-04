@@ -44,11 +44,11 @@ fn api_routes(app_state: AppState) -> Router<AppState> {
 fn auth_routes(app_state: AppState) -> Router<AppState> {
     let public = Router::new()
         .route("/register", post(AuthHandler::register))
-        .route("/login", post(AuthHandler::login));
+        .route("/login", post(AuthHandler::login))
+        .route("/refresh", post(AuthHandler::refresh_token));
 
     let protected = Router::new()
         .route("/me", get(AuthHandler::me))
-        .route("/refresh", post(AuthHandler::refresh_token))
         .route("/logout", post(AuthHandler::logout))
         .route("/profile", put(AuthHandler::update_profile))
         .route("/password", put(AuthHandler::change_password))

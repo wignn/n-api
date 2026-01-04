@@ -133,22 +133,27 @@ impl AuthHandler {
         }
     }
 
-    #[instrument(skip(state, cookies))]
+    #[instrument(skip(state, cookies, body))]
     pub async fn refresh_token(
         State(state): State<AppState>,
         cookies: Cookies,
-    ) -> Result<Json<AuthResponseWithoutTokens>, AppError> {
+        body: Option<Json<RefreshTokenRequest>>,
+    ) -> Result<Json<crate::models::auth_model::AuthResponse>, AppError> {
         info!("Attempting to refresh token");
 
-        // Get refresh token from cookie
-        let refresh_token = cookies
-            .get("refresh_token")
-            .ok_or_else(|| {
-                warn!("Refresh token not found in cookies");
-                AppError::Unauthorized
-            })?
-            .value()
-            .to_string();
+        // Try to get refresh token from body first (for mobile), then from cookie (for web)
+        let refresh_token = if let Some(Json(req)) = body {
+            req.refresh_token
+        } else {
+            cookies
+                .get("refresh_token")
+                .ok_or_else(|| {
+                    warn!("Refresh token not found in body or cookies");
+                    AppError::Unauthorized
+                })?
+                .value()
+                .to_string()
+        };
 
         let service = Self::create_service(&state);
 
@@ -160,7 +165,7 @@ impl AuthHandler {
                     "Token refreshed successfully"
                 );
 
-                // Set new HTTP-only cookies
+                // Set new HTTP-only cookies (for web clients)
                 let mut access_cookie = Cookie::new("access_token", auth.access_token.clone());
                 access_cookie.set_http_only(true);
                 access_cookie.set_secure(true);
@@ -181,7 +186,8 @@ impl AuthHandler {
 
                 info!("New cookies set successfully");
 
-                Ok(Json(AuthResponseWithoutTokens::success(auth.user)))
+                // Return full auth response with tokens (for mobile clients)
+                Ok(Json(crate::models::auth_model::AuthResponse::success(auth)))
             }
             Err(e) => {
                 error!(error = ?e, "Failed to refresh token");
