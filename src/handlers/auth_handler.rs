@@ -25,7 +25,7 @@ impl AuthHandler {
             state.config.jwt_expire_in,
             state.config.jwt_refresh_expire_in,
         );
-        AuthService::new(state.db.clone(), jwt_service)
+        AuthService::new(state.db.clone(), jwt_service, state.storage.clone())
     }
 
     #[instrument(skip(state, cookies, request), fields(

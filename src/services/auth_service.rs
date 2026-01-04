@@ -3,6 +3,7 @@ use crate::errors::{AppError, AppResult};
 use crate::models::auth_model::{Auth, LoginDto, RegisterDto};
 use crate::models::user_model::Role;
 use crate::models::user_model::{SafeUser, User};
+use crate::services::storage_service::StorageService;
 use crate::utils;
 use crate::utils::jwt::JwtService;
 use chrono::Utc;
@@ -10,11 +11,16 @@ use chrono::Utc;
 pub struct AuthService {
     db: Database,
     jwt_service: JwtService,
+    storage: StorageService,
 }
 
 impl AuthService {
-    pub fn new(db: Database, jwt_service: JwtService) -> Self {
-        Self { db, jwt_service }
+    pub fn new(db: Database, jwt_service: JwtService, storage: StorageService) -> Self {
+        Self {
+            db,
+            jwt_service,
+            storage,
+        }
     }
 
     pub async fn register(&self, request: RegisterDto) -> AppResult<Auth> {
@@ -266,8 +272,10 @@ impl AuthService {
         let filename = format!("avatars/{}/{}.{}", user_id, cuid2::create_id(), extension);
 
         // Upload to R2 via storage service
-        let storage = &self.db.storage;
-        let url = storage.upload_bytes(&filename, bytes, content_type).await?;
+        let url = self
+            .storage
+            .upload_bytes(&filename, bytes, content_type)
+            .await?;
 
         // Update user profile_pic in database
         sqlx::query(r#"UPDATE "User" SET profile_pic = $2, updated_at = $3 WHERE id = $1"#)
