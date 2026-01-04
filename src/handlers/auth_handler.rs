@@ -1,5 +1,5 @@
 use crate::middleware::auth::AuthUser;
-use crate::models::auth_model::{AuthResponseWithoutTokens, LoginDto, RegisterDto};
+use crate::models::auth_model::{LoginDto, RegisterDto};
 use crate::models::response_model::ApiResponse;
 use crate::services::auth_service::AuthService;
 use crate::utils::jwt::JwtService;
