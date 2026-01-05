@@ -1,8 +1,8 @@
 use crate::middleware::auth::AuthUser;
-use crate::models::user_model::Role;
 use crate::models::chapter_model::{ChapterDto, CreateChapterDto, UpdateChapterDto};
 use crate::models::paging_model::{PaginatedResponse, PaginationParams};
 use crate::models::response_model::ApiResponse;
+use crate::models::user_model::Role;
 use crate::require_role;
 use crate::services::chapter_service::ChapterService;
 use crate::{errors::AppError, AppState};
@@ -18,9 +18,8 @@ pub struct ChapterHandler;
 
 impl ChapterHandler {
     fn create_service(state: &AppState) -> ChapterService {
-        ChapterService::new(state.db.clone())
+        ChapterService::new(state.db.clone(), &state.notification)
     }
-
 
     #[instrument(skip(state), fields(
         page = %params.page,
@@ -59,16 +58,16 @@ impl ChapterHandler {
         info!("Fetching chapters for book");
 
         let service = Self::create_service(&state);
-        let paginated = service.get_chapters_by_book(book_id.clone(), params).await?;
+        let paginated = service
+            .get_chapters_by_book(book_id.clone(), params)
+            .await?;
         info!(
-        total_chapters = paginated.total_items,
-        "Chapters fetched successfully"
-    );
+            total_chapters = paginated.total_items,
+            "Chapters fetched successfully"
+        );
 
         Ok(Json(paginated))
     }
-
-
 
     #[instrument(skip(state), fields(chapter_id = %id))]
     pub async fn get_chapter(
@@ -106,7 +105,10 @@ impl ChapterHandler {
                 );
                 Ok((
                     StatusCode::CREATED,
-                    Json(ApiResponse::with_message("Chapter created successfully", chapter)),
+                    Json(ApiResponse::with_message(
+                        "Chapter created successfully",
+                        chapter,
+                    )),
                 ))
             }
             Err(e) => {
@@ -141,7 +143,10 @@ impl ChapterHandler {
                 );
                 Ok((
                     StatusCode::OK,
-                    Json(ApiResponse::with_message("Chapter updated successfully", chapter)),
+                    Json(ApiResponse::with_message(
+                        "Chapter updated successfully",
+                        chapter,
+                    )),
                 ))
             }
             Err(e) => {
@@ -171,7 +176,10 @@ impl ChapterHandler {
                 info!(chapter_id = %id, "Chapter deleted successfully");
                 Ok((
                     StatusCode::NO_CONTENT,
-                    Json(ApiResponse::with_message("Chapter deleted successfully", ())),
+                    Json(ApiResponse::with_message(
+                        "Chapter deleted successfully",
+                        (),
+                    )),
                 ))
             }
             Err(e) => {
@@ -181,4 +189,3 @@ impl ChapterHandler {
         }
     }
 }
-

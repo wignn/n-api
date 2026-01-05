@@ -2,17 +2,20 @@ use crate::database::Database;
 use crate::errors::AppResult;
 use crate::models::chapter_model::{Chapter, ChapterDto, CreateChapterDto, UpdateChapterDto};
 use crate::models::paging_model::{PaginatedResponse, PaginationParams};
+use crate::services::notification_service::NotificationService;
 use chrono::Utc;
 use cuid2;
 use sqlx::QueryBuilder;
+use tracing::error;
 
-pub struct ChapterService {
+pub struct ChapterService<'a> {
     db: Database,
+    notification: &'a NotificationService,
 }
 
-impl ChapterService {
-    pub fn new(db: Database) -> Self {
-        Self { db }
+impl<'a> ChapterService<'a> {
+    pub fn new(db: Database, notification: &'a NotificationService) -> Self {
+        Self { db, notification }
     }
 
     pub async fn create_chapter(&self, request: CreateChapterDto) -> AppResult<ChapterDto> {
@@ -52,7 +55,34 @@ impl ChapterService {
         let _ = redis.del(&format!("book:{}", request.book_id)).await;
         let _ = redis.del_prefix("books:").await;
 
+        // Send push notification to users who bookmarked this novel
+        let book_title = self
+            .get_book_title(&request.book_id)
+            .await
+            .unwrap_or_else(|_| "Novel".to_string());
+        if let Err(e) = self
+            .notification
+            .notify_new_chapter(
+                &request.book_id,
+                &book_title,
+                request.chapter_num,
+                &request.title,
+                &chapter.id,
+            )
+            .await
+        {
+            error!("Failed to send push notifications: {:?}", e);
+        }
+
         Ok(chapter.into())
+    }
+
+    async fn get_book_title(&self, book_id: &str) -> AppResult<String> {
+        let title = sqlx::query_scalar::<_, String>(r#"SELECT title FROM "Book" WHERE id = $1"#)
+            .bind(book_id)
+            .fetch_one(&self.db.pool)
+            .await?;
+        Ok(title)
     }
 
     pub async fn get_chapters(

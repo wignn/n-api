@@ -34,9 +34,15 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/novel-api /app/novel-api
 
+# Firebase service account for FCM (optional - copy if exists)
+COPY firebase.json /app/firebase.json
+
 RUN chown -R appuser:appuser /app
 
 USER appuser
+
+# Default FCM config (can be overridden by docker-compose or env)
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/firebase.json
 
 EXPOSE 4000
 

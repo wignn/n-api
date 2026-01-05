@@ -19,6 +19,9 @@ pub struct Config {
     pub s3_bucket: String,
     pub cdn_url: String,
     pub port: String,
+    // FCM V1 API (optional)
+    pub fcm_project_id: Option<String>,
+    pub fcm_service_account_path: Option<String>,
 }
 
 impl Config {
@@ -32,13 +35,15 @@ impl Config {
             api_key: Self::get_env("API_KEY")?,
             email: Self::get_env("EMAIL")?,
             password: Self::get_env("PASSWORD")?,
-            // Use AWS_* env vars for R2 compatibility
             cloudflare_api_token: Self::get_env("AWS_ACCESS_KEY_ID")?,
             cloudflare_secret: Self::get_env("AWS_SECRET_ACCESS_KEY")?,
             s3_endpoint: Self::get_env("AWS_ENDPOINT")?,
             s3_bucket: Self::get_env("AWS_BUCKET")?,
             cdn_url: Self::get_env("AWS_URL")?,
             port: Self::get_env("PORT")?,
+            // FCM V1 API (optional - app still works without these)
+            fcm_project_id: Self::get_env_optional("FCM_PROJECT_ID"),
+            fcm_service_account_path: Self::get_env_optional("GOOGLE_APPLICATION_CREDENTIALS"),
         })
     }
 
@@ -50,6 +55,10 @@ impl Config {
         let val = env::var(key).map_err(|_| ConfigError::MissingVar(key.to_string()))?;
         val.parse::<i64>()
             .map_err(|e| ConfigError::ParseError(key.to_string(), e))
+    }
+
+    fn get_env_optional(key: &str) -> Option<String> {
+        env::var(key).ok().filter(|v| !v.is_empty())
     }
 
     pub async fn test_database_connection(&self) -> Result<(), String> {

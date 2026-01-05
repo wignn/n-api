@@ -11,6 +11,7 @@ pub mod utils;
 
 use config::Config;
 use database::Database;
+use services::notification_service::NotificationService;
 use services::storage_service::StorageService;
 use std::sync::Arc;
 
@@ -20,4 +21,5 @@ pub struct AppStateInner {
     pub db: Database,
     pub config: Config,
     pub storage: StorageService,
+    pub notification: NotificationService,
 }

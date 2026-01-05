@@ -2,6 +2,7 @@ use axum::http::{header, HeaderValue, Method};
 use dotenvy::dotenv;
 use novel_api::config::Config;
 use novel_api::database::Database;
+use novel_api::services::notification_service::NotificationService;
 use novel_api::services::storage_service::StorageService;
 use novel_api::{routes, AppStateInner};
 use std::sync::Arc;
@@ -42,6 +43,9 @@ async fn main() {
     tracing::info!("Initializing storage service...");
     let storage = StorageService::new(&config);
 
+    tracing::info!("Initializing notification service...");
+    let notification = NotificationService::new(db.clone(), &config);
+
     let allowed_origins = [
         "http://localhost:5173",
         "http://localhost:3000",
@@ -78,6 +82,7 @@ async fn main() {
         db,
         config,
         storage,
+        notification,
     });
 
     let app = routes::create_routes(state, cors);
