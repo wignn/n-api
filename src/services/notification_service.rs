@@ -239,7 +239,7 @@ impl NotificationService {
         );
 
         for token in tokens {
-            if let Err(e) = self
+            match self
                 .send_fcm_v1_notification(
                     project_id,
                     &access_token,
@@ -251,11 +251,20 @@ impl NotificationService {
                 )
                 .await
             {
-                error!(
-                    "Failed to send notification to token {}: {:?}",
-                    &token[..20.min(token.len())],
-                    e
-                );
+                Ok(true) => {
+                    // Notification sent successfully
+                }
+                Ok(false) => {
+                    // Token is invalid, remove it from database
+                    self.remove_invalid_token(&token).await;
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to send notification to token {}: {:?}",
+                        &token[..20.min(token.len())],
+                        e
+                    );
+                }
             }
         }
 
@@ -281,7 +290,6 @@ impl NotificationService {
         Ok(tokens)
     }
 
-    /// Send FCM notification using HTTP V1 API
     async fn send_fcm_v1_notification(
         &self,
         project_id: &str,
@@ -291,7 +299,7 @@ impl NotificationService {
         body: &str,
         novel_id: &str,
         chapter_id: &str,
-    ) -> AppResult<()> {
+    ) -> Result<bool, crate::errors::AppError> {
         let payload = serde_json::json!({
             "message": {
                 "token": device_token,
@@ -331,11 +339,37 @@ impl NotificationService {
 
         if response.status().is_success() {
             info!("FCM V1 notification sent successfully");
+            Ok(true)
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            error!("FCM V1 notification failed: {}", error_text);
-        }
 
-        Ok(())
+            // Check if token is unregistered (invalid)
+            if error_text.contains("UNREGISTERED") || error_text.contains("NOT_FOUND") {
+                warn!("FCM token is invalid/unregistered, will be removed");
+                Ok(false) // Signal to remove this token
+            } else {
+                error!("FCM V1 notification failed: {}", error_text);
+                Ok(true) // Don't remove token for other errors
+            }
+        }
+    }
+
+    /// Remove invalid FCM token from user
+    async fn remove_invalid_token(&self, token: &str) {
+        let result = sqlx::query(r#"UPDATE "User" SET fcm_token = NULL WHERE fcm_token = $1"#)
+            .bind(token)
+            .execute(&self.db.pool)
+            .await;
+
+        match result {
+            Ok(r) => {
+                if r.rows_affected() > 0 {
+                    info!("Removed invalid FCM token from database");
+                }
+            }
+            Err(e) => {
+                error!("Failed to remove invalid token: {:?}", e);
+            }
+        }
     }
 }
